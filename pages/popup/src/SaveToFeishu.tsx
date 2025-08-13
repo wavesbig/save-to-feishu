@@ -1,6 +1,6 @@
 import { useStorage } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
-import { cn } from '@extension/ui';
+import { Button, Input, Textarea } from '@extension/ui';
 import { useEffect, useState } from 'react';
 import type { FeishuUser, FeishuWiki, SaveContent, SaveTarget } from '@extension/shared';
 import type React from 'react';
@@ -78,7 +78,7 @@ const SaveToFeishu: React.FC = () => {
                 if (result && result.result) {
                   setPageInfo(prev => ({
                     ...prev,
-                    content: result.result,
+                    content: result.result || '',
                   }));
                 }
               } catch (error) {
@@ -203,17 +203,20 @@ const SaveToFeishu: React.FC = () => {
   if (!user) {
     return (
       <div className="flex min-h-[300px] min-w-[350px] flex-col items-center justify-center p-6">
-        <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="mb-4 h-16 w-16" />
+        <div className="mb-4 rounded-full bg-blue-100 p-3">
+          <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="h-12 w-12" />
+        </div>
         <h1 className="mb-6 text-xl font-bold">保存到飞书</h1>
 
-        {error && <div className="mb-4 w-full rounded bg-red-100 p-2 text-center text-red-700">{error}</div>}
+        {error && (
+          <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 w-full rounded-md border p-3 text-center">
+            {error}
+          </div>
+        )}
 
-        <button
-          className="w-full rounded-lg bg-[#2E6EDF] px-6 py-2 font-medium text-white transition-colors hover:bg-blue-600"
-          onClick={handleAuth}
-          disabled={isLoading}>
+        <Button className="w-full" onClick={handleAuth} disabled={isLoading}>
           {isLoading ? '正在授权...' : '登录飞书账号'}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -222,10 +225,10 @@ const SaveToFeishu: React.FC = () => {
   if (saveSuccess) {
     return (
       <div className="flex min-h-[300px] min-w-[350px] flex-col items-center justify-center p-6">
-        <div className="mb-4 text-green-500">
+        <div className="mb-4 rounded-full bg-green-100 p-3 text-green-500">
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-16 w-16"
+            className="h-12 w-12"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor">
@@ -233,7 +236,7 @@ const SaveToFeishu: React.FC = () => {
           </svg>
         </div>
         <h2 className="mb-2 text-xl font-bold">保存成功</h2>
-        <p className="mb-4 text-gray-600">内容已成功保存到飞书</p>
+        <p className="text-muted-foreground mb-4">内容已成功保存到飞书</p>
       </div>
     );
   }
@@ -251,26 +254,29 @@ const SaveToFeishu: React.FC = () => {
         <div className="flex items-center">
           <img src={user.avatar_url} alt={user.name} className="mr-2 h-6 w-6 rounded-full" />
           <span className="mr-2 text-sm">{user.name}</span>
-          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-500 hover:text-gray-700">
             退出
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* 错误提示 */}
-      {error && <div className="mb-4 rounded bg-red-100 p-2 text-red-700">{error}</div>}
+      {error && (
+        <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 rounded-md border p-3">
+          {error}
+        </div>
+      )}
 
       {/* 内容编辑 */}
       <div className="mb-4">
         <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
           标题
         </label>
-        <input
+        <Input
           id="title"
           type="text"
           value={pageInfo.title}
           onChange={e => setPageInfo({ ...pageInfo, title: e.target.value })}
-          className="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -278,24 +284,18 @@ const SaveToFeishu: React.FC = () => {
         <label htmlFor="url" className="mb-1 block text-sm font-medium text-gray-700">
           URL
         </label>
-        <input
-          id="url"
-          type="text"
-          value={pageInfo.url}
-          readOnly
-          className="w-full rounded border border-gray-300 bg-gray-50 p-2"
-        />
+        <Input id="url" type="text" value={pageInfo.url} readOnly className="bg-muted" />
       </div>
 
       <div className="mb-4">
         <label htmlFor="content" className="mb-1 block text-sm font-medium text-gray-700">
           内容预览
         </label>
-        <textarea
+        <Textarea
           id="content"
           value={pageInfo.content}
           onChange={e => setPageInfo({ ...pageInfo, content: e.target.value })}
-          className="h-24 w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="h-24"
         />
       </div>
 
@@ -303,30 +303,24 @@ const SaveToFeishu: React.FC = () => {
       <div className="mb-4">
         <span className="mb-2 block text-sm font-medium text-gray-700">保存到</span>
         <div className="mb-2 flex space-x-2">
-          <button
-            className={cn(
-              'rounded px-3 py-1 text-sm font-medium',
-              selectedTarget === 'doc' ? 'bg-[#2E6EDF] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-            )}
+          <Button
+            variant={selectedTarget === 'doc' ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setSelectedTarget('doc')}>
             文档
-          </button>
-          <button
-            className={cn(
-              'rounded px-3 py-1 text-sm font-medium',
-              selectedTarget === 'wiki' ? 'bg-[#2E6EDF] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-            )}
+          </Button>
+          <Button
+            variant={selectedTarget === 'wiki' ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setSelectedTarget('wiki')}>
             知识库
-          </button>
-          <button
-            className={cn(
-              'rounded px-3 py-1 text-sm font-medium',
-              selectedTarget === 'note' ? 'bg-[#2E6EDF] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-            )}
+          </Button>
+          <Button
+            variant={selectedTarget === 'note' ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setSelectedTarget('note')}>
             便签
-          </button>
+          </Button>
         </div>
 
         {/* 知识库选择 */}
@@ -339,7 +333,7 @@ const SaveToFeishu: React.FC = () => {
               id="wiki-select"
               value={selectedWikiId}
               onChange={e => setSelectedWikiId(e.target.value)}
-              className="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              className="border-input bg-background ring-offset-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
               <option value="">请选择知识库</option>
               {wikis.map(wiki => (
                 <option key={wiki.id} value={wiki.id}>
@@ -358,13 +352,13 @@ const SaveToFeishu: React.FC = () => {
             标签
           </label>
           <div className="mb-2 flex">
-            <input
+            <Input
               id="tag-input"
               type="text"
               value={currentTag}
               onChange={e => setCurrentTag(e.target.value)}
               placeholder="添加标签"
-              className="flex-1 rounded-l border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 rounded-r-none"
               onKeyPress={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -372,21 +366,25 @@ const SaveToFeishu: React.FC = () => {
                 }
               }}
             />
-            <button onClick={handleAddTag} className="rounded-r bg-gray-200 px-4 py-2 text-gray-700 hover:bg-gray-300">
+            <Button variant="secondary" onClick={handleAddTag} className="rounded-l-none">
               添加
-            </button>
+            </Button>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {tags.map(tag => (
-              <div key={tag} className="flex items-center rounded-full bg-gray-100 px-2 py-1 text-sm text-gray-700">
+              <div
+                key={tag}
+                className="bg-secondary text-secondary-foreground flex items-center rounded-full px-3 py-1 text-sm">
                 {tag}
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleRemoveTag(tag)}
-                  className="ml-1 text-gray-500 hover:text-gray-700"
+                  className="text-muted-foreground hover:text-foreground ml-1 h-auto p-0"
                   aria-label={`删除标签 ${tag}`}>
                   &times;
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -395,12 +393,12 @@ const SaveToFeishu: React.FC = () => {
 
       {/* 保存按钮 */}
       <div className="mt-6">
-        <button
-          className="w-full rounded bg-[#2E6EDF] px-4 py-2 font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+        <Button
+          className="w-full"
           onClick={handleSave}
           disabled={isSaving || (selectedTarget === 'wiki' && !selectedWikiId)}>
           {isSaving ? '正在保存...' : '保存到飞书'}
-        </button>
+        </Button>
       </div>
     </div>
   );

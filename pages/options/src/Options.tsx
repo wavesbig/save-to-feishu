@@ -1,5 +1,6 @@
 import { useStorage } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
+import { Button } from '@extension/ui';
 import { useEffect, useState } from 'react';
 import type { FeishuUser, FeishuWiki, SaveTarget } from '@extension/shared';
 import type React from 'react';
@@ -126,17 +127,20 @@ const Options: React.FC = () => {
   if (!user) {
     return (
       <div className="flex min-h-[300px] flex-col items-center justify-center p-6">
-        <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="mb-4 h-16 w-16" />
+        <div className="mb-4 rounded-full bg-blue-100 p-3">
+          <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="h-12 w-12" />
+        </div>
         <h1 className="mb-6 text-xl font-bold">保存到飞书 - 设置</h1>
 
-        {error && <div className="mb-4 w-full max-w-md rounded bg-red-100 p-2 text-center text-red-700">{error}</div>}
+        {error && (
+          <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 w-full max-w-md rounded-md border p-3 text-center">
+            {error}
+          </div>
+        )}
 
-        <button
-          className="w-full max-w-md rounded-lg bg-[#2E6EDF] px-6 py-2 font-medium text-white transition-colors hover:bg-blue-600"
-          onClick={handleAuth}
-          disabled={isLoading}>
+        <Button className="w-full max-w-md" onClick={handleAuth} disabled={isLoading}>
           {isLoading ? '正在授权...' : '登录飞书账号'}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -153,17 +157,23 @@ const Options: React.FC = () => {
         <div className="flex items-center">
           <img src={user.avatar_url} alt={user.name} className="mr-2 h-8 w-8 rounded-full" />
           <span className="mr-3 text-sm">{user.name}</span>
-          <button onClick={handleLogout} className="text-gray-500 hover:text-gray-700">
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-500 hover:text-gray-700">
             退出
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* 错误提示 */}
-      {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+      {error && (
+        <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 rounded-md border p-3">
+          {error}
+        </div>
+      )}
 
       {/* 成功提示 */}
-      {saveSuccess && <div className="mb-4 rounded bg-green-100 p-3 text-green-700">设置已保存</div>}
+      {saveSuccess && (
+        <div className="mb-4 rounded-md border border-green-500/50 bg-green-500/10 p-3 text-green-700">设置已保存</div>
+      )}
 
       <div className="rounded-lg bg-white p-6 shadow">
         <h2 className="mb-4 text-lg font-medium">偏好设置</h2>
@@ -180,7 +190,7 @@ const Options: React.FC = () => {
                 value="doc"
                 checked={defaultTarget === 'doc'}
                 onChange={() => setDefaultTarget('doc')}
-                className="h-4 w-4 text-blue-600"
+                className="border-primary text-primary ring-offset-background focus-visible:ring-ring h-4 w-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span className="ml-2">文档</span>
             </label>
@@ -192,7 +202,7 @@ const Options: React.FC = () => {
                 value="wiki"
                 checked={defaultTarget === 'wiki'}
                 onChange={() => setDefaultTarget('wiki')}
-                className="h-4 w-4 text-blue-600"
+                className="border-primary text-primary ring-offset-background focus-visible:ring-ring h-4 w-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span className="ml-2">知识库</span>
             </label>
@@ -204,7 +214,7 @@ const Options: React.FC = () => {
                 value="note"
                 checked={defaultTarget === 'note'}
                 onChange={() => setDefaultTarget('note')}
-                className="h-4 w-4 text-blue-600"
+                className="border-primary text-primary ring-offset-background focus-visible:ring-ring h-4 w-4 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span className="ml-2">便签</span>
             </label>
@@ -221,7 +231,7 @@ const Options: React.FC = () => {
               id="default-wiki"
               value={defaultWikiId}
               onChange={e => setDefaultWikiId(e.target.value)}
-              className="w-full rounded border border-gray-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              className="border-input bg-background ring-offset-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
               <option value="">请选择知识库</option>
               {wikis.map(wiki => (
                 <option key={wiki.id} value={wiki.id}>
@@ -242,7 +252,7 @@ const Options: React.FC = () => {
                 type="checkbox"
                 checked={includeTags}
                 onChange={e => setIncludeTags(e.target.checked)}
-                className="h-4 w-4 rounded text-blue-600"
+                className="border-primary text-primary ring-offset-background focus-visible:ring-ring h-4 w-4 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span className="ml-2">启用标签功能</span>
             </label>
@@ -252,7 +262,7 @@ const Options: React.FC = () => {
                 type="checkbox"
                 checked={includeScreenshot}
                 onChange={e => setIncludeScreenshot(e.target.checked)}
-                className="h-4 w-4 rounded text-blue-600"
+                className="border-primary text-primary ring-offset-background focus-visible:ring-ring h-4 w-4 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span className="ml-2">保存时包含页面截图</span>
             </label>
@@ -261,12 +271,9 @@ const Options: React.FC = () => {
 
         {/* 保存按钮 */}
         <div className="mt-6">
-          <button
-            className="rounded bg-[#2E6EDF] px-6 py-2 font-medium text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
-            onClick={handleSaveSettings}
-            disabled={isSaving || (defaultTarget === 'wiki' && !defaultWikiId)}>
+          <Button onClick={handleSaveSettings} disabled={isSaving || (defaultTarget === 'wiki' && !defaultWikiId)}>
             {isSaving ? '正在保存...' : '保存设置'}
-          </button>
+          </Button>
         </div>
       </div>
 
