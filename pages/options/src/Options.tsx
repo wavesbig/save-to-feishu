@@ -18,7 +18,7 @@ const Options: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // 获取保存偏好设置
-  const { savePreferences, setSavePreferences } = useStorage(feishuStorage);
+  const { savePreferences } = useStorage(feishuStorage);
 
   // 初始化
   useEffect(() => {
@@ -98,11 +98,14 @@ const Options: React.FC = () => {
     setSaveSuccess(false);
 
     try {
-      await setSavePreferences({
-        defaultTarget,
-        defaultWikiId: defaultWikiId || undefined,
-        includeTags,
-        includeScreenshot,
+      await feishuStorage.set({
+        ...(await feishuStorage.get()),
+        savePreferences: {
+          defaultTarget,
+          defaultWikiId: defaultWikiId || undefined,
+          includeTags,
+          includeScreenshot,
+        },
       });
 
       setSaveSuccess(true);
