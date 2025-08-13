@@ -1,0 +1,123 @@
+{
+  "extensionDescription": {
+    "description": "扩展描述",
+    "message": "保存到飞书 - 一键保存网页内容到飞书"
+  },
+  "extensionName": {
+    "description": "扩展名称",
+    "message": "保存到飞书"
+  },
+  "toggleTheme": {
+    "message": "切换主题"
+  },
+  "injectButton": {
+    "message": "点击注入内容脚本"
+  },
+  "greeting": {
+    "description": "问候消息",
+    "message": "你好，我的名字是 $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "张三"
+      }
+    }
+  },
+  "hello": {
+    "description": "占位符示例",
+    "message": "你好 $1"
+  },
+  "displayErrorInfo": {
+    "message": "发生错误"
+  },
+  "displayErrorDescription": {
+    "message": "抱歉，加载页面时出现问题。"
+  },
+  "displayErrorDetailsInfo": {
+    "message": "错误详情："
+  },
+  "displayErrorUnknownErrorInfo": {
+    "message": "未知错误"
+  },
+  "displayErrorReset": {
+    "message": "重试"
+  },
+  "saveToFeishu": {
+    "message": "保存到飞书"
+  },
+  "login": {
+    "message": "登录"
+  },
+  "logout": {
+    "message": "退出"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "saving": {
+    "message": "正在保存..."
+  },
+  "saveSuccess": {
+    "message": "保存成功"
+  },
+  "saveFailed": {
+    "message": "保存失败"
+  },
+  "title": {
+    "message": "标题"
+  },
+  "content": {
+    "message": "内容"
+  },
+  "tags": {
+    "message": "标签"
+  },
+  "addTag": {
+    "message": "添加标签"
+  },
+  "document": {
+    "message": "文档"
+  },
+  "wiki": {
+    "message": "知识库"
+  },
+  "note": {
+    "message": "便签"
+  },
+  "selectWiki": {
+    "message": "选择知识库"
+  },
+  "settings": {
+    "message": "设置"
+  },
+  "defaultTarget": {
+    "message": "默认保存目标"
+  },
+  "defaultWiki": {
+    "message": "默认知识库"
+  },
+  "otherOptions": {
+    "message": "其他选项"
+  },
+  "enableTags": {
+    "message": "启用标签功能"
+  },
+  "includeScreenshot": {
+    "message": "保存时包含页面截图"
+  },
+  "saveSettings": {
+    "message": "保存设置"
+  },
+  "settingsSaved": {
+    "message": "设置已保存"
+  },
+  "about": {
+    "message": "关于"
+  },
+  "aboutDescription": {
+    "message": "Save to Feishu 是一个浏览器扩展，可以帮助你快速保存网页内容到飞书文档、知识库或便签中。"
+  },
+  "version": {
+    "message": "版本"
+  }
+}

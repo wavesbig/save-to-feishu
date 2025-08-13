@@ -31,7 +31,7 @@ const manifest = {
   version: packageJson.version,
   description: '__MSG_extensionDescription__',
   host_permissions: ['<all_urls>'],
-  permissions: ['storage', 'scripting', 'tabs', 'notifications', 'sidePanel'],
+  permissions: ['storage', 'scripting', 'tabs', 'notifications', 'sidePanel', 'identity'],
   options_page: 'options/index.html',
   background: {
     service_worker: 'background.js',
@@ -66,7 +66,7 @@ const manifest = {
     },
     {
       matches: ['http://*/*', 'https://*/*', '<all_urls>'],
-      css: ['content.css'],
+      css: ['content.css', 'save-to-feishu.css'],
     },
   ],
   devtools_page: 'devtools/index.html',

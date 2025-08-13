@@ -1,0 +1,47 @@
+/* 保存到飞书按钮样式 */
+#save-to-feishu-button {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#save-to-feishu-button button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #2E6EDF;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+#save-to-feishu-button button:hover {
+  transform: scale(1.1);
+}
+
+#save-to-feishu-button button svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 飞书主题颜色 */
+.feishu-primary {
+  color: #2E6EDF;
+}
+
+.feishu-bg-primary {
+  background-color: #2E6EDF;
+}
+
+.feishu-border-primary {
+  border-color: #2E6EDF;
+}
