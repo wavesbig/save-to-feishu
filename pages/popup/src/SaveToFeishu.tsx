@@ -51,38 +51,43 @@ const SaveToFeishu: React.FC = () => {
               content: '',
             });
 
-            // 获取页面内容
+            // 通过content script获取页面内容
             if (tab.id) {
               try {
-                const [result] = await chrome.scripting.executeScript({
-                  target: { tabId: tab.id },
-                  func: () => {
-                    // 获取页面正文内容
-                    const getPageContent = () => {
-                      // 尝试获取文章内容
-                      const article = document.querySelector('article');
-                      if (article) return article.innerText.substring(0, 1000);
-
-                      // 尝试获取主要内容
-                      const main = document.querySelector('main');
-                      if (main) return main.innerText.substring(0, 1000);
-
-                      // 获取页面所有文本
-                      return document.body.innerText.substring(0, 1000);
-                    };
-
-                    return getPageContent();
-                  },
-                });
-
-                if (result && result.result) {
-                  setPageInfo(prev => ({
-                    ...prev,
-                    content: result.result || '',
-                  }));
+                const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
+                if (response && response.success && response.data) {
+                  setPageInfo({
+                    title: response.data.title || tab.title || '',
+                    url: response.data.url || tab.url || '',
+                    content: response.data.content || '',
+                  });
                 }
               } catch (error) {
                 console.error('获取页面内容失败:', error);
+                // 如果content script获取失败，使用fallback方法
+                try {
+                  const [result] = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => {
+                      const getPageContent = () => {
+                        const article = document.querySelector('article');
+                        if (article) return article.innerText.substring(0, 1000);
+                        const main = document.querySelector('main');
+                        if (main) return main.innerText.substring(0, 1000);
+                        return document.body.innerText.substring(0, 1000);
+                      };
+                      return getPageContent();
+                    },
+                  });
+                  if (result && result.result) {
+                    setPageInfo(prev => ({
+                      ...prev,
+                      content: result.result || '',
+                    }));
+                  }
+                } catch (fallbackError) {
+                  console.error('Fallback获取页面内容失败:', fallbackError);
+                }
               }
             }
           }
