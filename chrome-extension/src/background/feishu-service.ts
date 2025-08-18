@@ -26,13 +26,14 @@ chrome.runtime.onInstalled.addListener(async () => {
  * 启动飞书授权流程
  */
 const startFeishuAuth = async () => {
-  // 确保APP_ID不为空
-  if (!FEISHU_CONFIG.APP_ID) {
+  // 获取APP_ID配置
+  const appId = await FEISHU_CONFIG.getAppId();
+  if (!appId) {
     console.error('飞书APP_ID未配置');
-    return { success: false, error: '飞书APP_ID未配置，请在.env文件中设置CEB_FEISHU_APP_ID' };
+    return { success: false, error: '飞书APP_ID未配置，请在设置页面配置' };
   }
 
-  const authUrl = `${FEISHU_CONFIG.API_BASE_URL}/authen/v1/index?app_id=${FEISHU_CONFIG.APP_ID}&redirect_uri=${encodeURIComponent(FEISHU_CONFIG.REDIRECT_URI)}&response_type=code`;
+  const authUrl = `${FEISHU_CONFIG.API_BASE_URL}/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(FEISHU_CONFIG.REDIRECT_URI)}&response_type=code`;
 
   try {
     // 使用Chrome身份API打开授权窗口
@@ -62,10 +63,13 @@ const startFeishuAuth = async () => {
  * 使用授权码获取访问令牌
  */
 const getAccessToken = async (code: string) => {
-  // 确保APP_ID和APP_SECRET不为空
-  if (!FEISHU_CONFIG.APP_ID || !FEISHU_CONFIG.APP_SECRET) {
+  // 获取APP_ID和APP_SECRET配置
+  const appId = await FEISHU_CONFIG.getAppId();
+  const appSecret = await FEISHU_CONFIG.getAppSecret();
+
+  if (!appId || !appSecret) {
     console.error('飞书APP_ID或APP_SECRET未配置');
-    return { success: false, error: '飞书应用配置不完整，请在.env文件中设置CEB_FEISHU_APP_ID和CEB_FEISHU_APP_SECRET' };
+    return { success: false, error: '飞书应用配置不完整，请在设置页面配置' };
   }
 
   try {
@@ -75,8 +79,8 @@ const getAccessToken = async (code: string) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        app_id: FEISHU_CONFIG.APP_ID,
-        app_secret: FEISHU_CONFIG.APP_SECRET,
+        app_id: appId,
+        app_secret: appSecret,
         grant_type: 'authorization_code',
         code,
       }),
@@ -116,10 +120,13 @@ const refreshAccessToken = async () => {
     return { success: false, error: '没有刷新令牌' };
   }
 
-  // 确保APP_ID和APP_SECRET不为空
-  if (!FEISHU_CONFIG.APP_ID || !FEISHU_CONFIG.APP_SECRET) {
+  // 获取APP_ID和APP_SECRET配置
+  const appId = await FEISHU_CONFIG.getAppId();
+  const appSecret = await FEISHU_CONFIG.getAppSecret();
+
+  if (!appId || !appSecret) {
     console.error('飞书APP_ID或APP_SECRET未配置');
-    return { success: false, error: '飞书应用配置不完整，请在.env文件中设置CEB_FEISHU_APP_ID和CEB_FEISHU_APP_SECRET' };
+    return { success: false, error: '飞书应用配置不完整，请在设置页面配置' };
   }
 
   try {
@@ -129,8 +136,8 @@ const refreshAccessToken = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        app_id: FEISHU_CONFIG.APP_ID,
-        app_secret: FEISHU_CONFIG.APP_SECRET,
+        app_id: appId,
+        app_secret: appSecret,
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
       }),

@@ -18,6 +18,12 @@ const Options: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // 飞书应用配置
+  const [appId, setAppId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
+  const [configSaving, setConfigSaving] = useState(false);
+  const [configSuccess, setConfigSuccess] = useState(false);
+
   // 获取保存偏好设置
   const { savePreferences } = useStorage(feishuStorage);
 
@@ -44,6 +50,11 @@ const Options: React.FC = () => {
             setIncludeTags(savePreferences.includeTags);
             setIncludeScreenshot(savePreferences.includeScreenshot);
           }
+
+          // 加载飞书应用配置
+          const { feishuAppId, feishuAppSecret } = await chrome.storage.local.get(['feishuAppId', 'feishuAppSecret']);
+          setAppId(feishuAppId || '');
+          setAppSecret(feishuAppSecret || '');
         } else {
           setError('未登录飞书账号');
         }
@@ -123,6 +134,33 @@ const Options: React.FC = () => {
     }
   };
 
+  // 处理保存飞书应用配置
+  const handleSaveConfig = async () => {
+    setConfigSaving(true);
+    setConfigSuccess(false);
+    setError(null);
+
+    try {
+      // 保存到本地存储
+      await chrome.storage.local.set({
+        feishuAppId: appId.trim(),
+        feishuAppSecret: appSecret.trim(),
+      });
+
+      setConfigSuccess(true);
+
+      // 3秒后隐藏成功提示
+      setTimeout(() => {
+        setConfigSuccess(false);
+      }, 3000);
+    } catch (error) {
+      console.error('保存配置失败:', error);
+      setError('保存配置失败');
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
   // 渲染登录界面
   if (!user) {
     return (
@@ -130,7 +168,7 @@ const Options: React.FC = () => {
         <div className="mb-4 rounded-full bg-blue-100 p-3">
           <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="h-12 w-12" />
         </div>
-        <h1 className="mb-6 text-xl font-bold">保存到飞书 - 设置</h1>
+        <h1 className="mb-6 text-xl font-bold">保存到飞书 - 设置11</h1>
 
         {error && (
           <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 w-full max-w-md rounded-md border p-3 text-center">
@@ -175,7 +213,69 @@ const Options: React.FC = () => {
         <div className="mb-4 rounded-md border border-green-500/50 bg-green-500/10 p-3 text-green-700">设置已保存</div>
       )}
 
+      {/* 配置成功提示 */}
+      {configSuccess && (
+        <div className="mb-4 rounded-md border border-green-500/50 bg-green-500/10 p-3 text-green-700">
+          飞书应用配置已保存
+        </div>
+      )}
+
       <div className="rounded-lg bg-white p-6 shadow">
+        <h2 className="mb-4 text-lg font-medium">飞书应用配置</h2>
+        <p className="mb-4 text-sm text-gray-600">
+          请在飞书开放平台创建应用后，填入应用的 App ID 和 App Secret。
+          <a
+            href="https://open.feishu.cn/app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-1 text-blue-600 hover:text-blue-800">
+            前往飞书开放平台 →
+          </a>
+        </p>
+
+        {/* App ID */}
+        <div className="mb-4">
+          <label htmlFor="app-id" className="mb-2 block text-sm font-medium text-gray-700">
+            App ID
+          </label>
+          <input
+            id="app-id"
+            type="text"
+            value={appId}
+            onChange={e => setAppId(e.target.value)}
+            placeholder="请输入飞书应用的 App ID"
+            className="border-input bg-background ring-offset-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
+
+        {/* App Secret */}
+        <div className="mb-4">
+          <label htmlFor="app-secret" className="mb-2 block text-sm font-medium text-gray-700">
+            App Secret
+          </label>
+          <input
+            id="app-secret"
+            type="password"
+            value={appSecret}
+            onChange={e => setAppSecret(e.target.value)}
+            placeholder="请输入飞书应用的 App Secret"
+            className="border-input bg-background ring-offset-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
+
+        {/* 保存配置按钮 */}
+        <div className="mb-6">
+          <Button
+            onClick={handleSaveConfig}
+            disabled={configSaving || !appId.trim() || !appSecret.trim()}
+            className="mr-2">
+            {configSaving ? '正在保存...' : '保存配置'}
+          </Button>
+          <span className="text-xs text-gray-500">保存后需要重新授权登录</span>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg bg-white p-6 shadow">
         <h2 className="mb-4 text-lg font-medium">偏好设置</h2>
 
         {/* 默认保存目标 */}

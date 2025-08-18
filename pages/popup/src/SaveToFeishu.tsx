@@ -1,4 +1,5 @@
-import { useStorage } from '@extension/shared';
+import ConfigPrompt from './ConfigPrompt';
+import { useStorage, FEISHU_CONFIG } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
 import { Button, Input, Textarea } from '@extension/ui';
 import { useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ const SaveToFeishu: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<FeishuUser | null>(null);
+  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [pageInfo, setPageInfo] = useState<{ title: string; url: string; content: string }>({
     title: '',
     url: '',
@@ -28,88 +30,7 @@ const SaveToFeishu: React.FC = () => {
 
   // 初始化
   useEffect(() => {
-    const init = async () => {
-      setIsLoading(true);
-      try {
-        // 获取当前用户信息
-        const userResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_user' });
-        if (userResponse.success && userResponse.data) {
-          setUser(userResponse.data.user);
-
-          // 获取知识库列表
-          const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
-          if (wikisResponse.success && wikisResponse.data) {
-            setWikis(wikisResponse.data.items || []);
-          }
-
-          // 获取当前页面信息
-          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          if (tab && tab.url && tab.title) {
-            setPageInfo({
-              title: tab.title || '',
-              url: tab.url || '',
-              content: '',
-            });
-
-            // 通过content script获取页面内容
-            if (tab.id) {
-              try {
-                const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
-                if (response && response.success && response.data) {
-                  setPageInfo({
-                    title: response.data.title || tab.title || '',
-                    url: response.data.url || tab.url || '',
-                    content: response.data.content || '',
-                  });
-                }
-              } catch (error) {
-                console.error('获取页面内容失败:', error);
-                // 如果content script获取失败，使用fallback方法
-                try {
-                  const [result] = await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    func: () => {
-                      const getPageContent = () => {
-                        const article = document.querySelector('article');
-                        if (article) return article.innerText.substring(0, 1000);
-                        const main = document.querySelector('main');
-                        if (main) return main.innerText.substring(0, 1000);
-                        return document.body.innerText.substring(0, 1000);
-                      };
-                      return getPageContent();
-                    },
-                  });
-                  if (result && result.result) {
-                    setPageInfo(prev => ({
-                      ...prev,
-                      content: result.result || '',
-                    }));
-                  }
-                } catch (fallbackError) {
-                  console.error('Fallback获取页面内容失败:', fallbackError);
-                }
-              }
-            }
-          }
-
-          // 设置默认目标
-          if (savePreferences) {
-            setSelectedTarget(savePreferences.defaultTarget);
-            if (savePreferences.defaultWikiId) {
-              setSelectedWikiId(savePreferences.defaultWikiId);
-            }
-          }
-        } else {
-          setError('未登录飞书账号');
-        }
-      } catch (error) {
-        console.error('初始化失败:', error);
-        setError('初始化失败');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+    setIsLoading(true);
     init();
   }, [savePreferences]);
 
@@ -143,6 +64,109 @@ const SaveToFeishu: React.FC = () => {
       setUser(null);
     } catch (error) {
       console.error('退出登录失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 处理配置保存完成
+  const handleConfigSaved = () => {
+    // 重新初始化，检查配置状态
+    setIsConfigured(null);
+    setIsLoading(true);
+    init();
+  };
+
+  // 将初始化逻辑提取为独立函数
+  const init = async () => {
+    try {
+      // 检查飞书应用配置
+      const appId = await FEISHU_CONFIG.getAppId();
+      const appSecret = await FEISHU_CONFIG.getAppSecret();
+
+      if (!appId || !appSecret) {
+        setIsConfigured(false);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsConfigured(true);
+
+      // 获取当前用户信息
+      const userResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_user' });
+      console.log('🚀 ~ init ~ userResponse:', userResponse);
+      if (userResponse.success && userResponse.data) {
+        setUser(userResponse.data.user);
+
+        // 获取知识库列表
+        const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
+        if (wikisResponse.success && wikisResponse.data) {
+          setWikis(wikisResponse.data.items || []);
+        }
+
+        // 获取当前页面信息
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab && tab.url && tab.title) {
+          setPageInfo({
+            title: tab.title || '',
+            url: tab.url || '',
+            content: '',
+          });
+
+          // 通过content script获取页面内容
+          if (tab.id) {
+            try {
+              const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
+              if (response && response.success && response.data) {
+                setPageInfo({
+                  title: response.data.title || tab.title || '',
+                  url: response.data.url || tab.url || '',
+                  content: response.data.content || '',
+                });
+              }
+            } catch (error) {
+              console.error('获取页面内容失败:', error);
+              // 如果content script获取失败，使用fallback方法
+              try {
+                const [result] = await chrome.scripting.executeScript({
+                  target: { tabId: tab.id },
+                  func: () => {
+                    const getPageContent = () => {
+                      const article = document.querySelector('article');
+                      if (article) return article.innerText.substring(0, 1000);
+                      const main = document.querySelector('main');
+                      if (main) return main.innerText.substring(0, 1000);
+                      return document.body.innerText.substring(0, 1000);
+                    };
+                    return getPageContent();
+                  },
+                });
+                if (result && result.result) {
+                  setPageInfo(prev => ({
+                    ...prev,
+                    content: result.result || '',
+                  }));
+                }
+              } catch (fallbackError) {
+                console.error('Fallback获取页面内容失败:', fallbackError);
+              }
+            }
+          }
+        }
+
+        // 设置默认目标
+        if (savePreferences) {
+          setSelectedTarget(savePreferences.defaultTarget);
+          if (savePreferences.defaultWikiId) {
+            setSelectedWikiId(savePreferences.defaultWikiId);
+          }
+        }
+      } else {
+        setError('未登录飞书账号');
+      }
+    } catch (error) {
+      console.error('初始化失败:', error);
+      setError('初始化失败');
     } finally {
       setIsLoading(false);
     }
@@ -204,10 +228,15 @@ const SaveToFeishu: React.FC = () => {
     }
   };
 
+  // 渲染配置提示界面
+  if (isConfigured === false) {
+    return <ConfigPrompt onConfigSaved={handleConfigSaved} />;
+  }
+
   // 渲染登录界面
   if (!user) {
     return (
-      <div className="flex min-h-[300px] min-w-[350px] flex-col items-center justify-center p-6">
+      <div className="flex min-h-[300px] flex-col items-center justify-center p-6">
         <div className="mb-4 rounded-full bg-blue-100 p-3">
           <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="h-12 w-12" />
         </div>
