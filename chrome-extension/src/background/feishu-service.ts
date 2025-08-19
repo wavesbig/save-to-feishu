@@ -344,43 +344,5 @@ const logout = async () => {
   return { success: true };
 };
 
-// 监听来自内容脚本和弹出窗口的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'feishu_auth') {
-    startFeishuAuth().then(sendResponse);
-    return true; // 异步响应
-  }
-
-  if (message.action === 'feishu_get_user') {
-    getCurrentUser().then(sendResponse);
-    return true;
-  }
-
-  if (message.action === 'feishu_get_documents') {
-    getDocuments().then(sendResponse);
-    return true;
-  }
-
-  if (message.action === 'feishu_get_wikis') {
-    getWikis().then(sendResponse);
-    return true;
-  }
-
-  if (message.action === 'feishu_get_notes') {
-    getNotes().then(sendResponse);
-    return true;
-  }
-
-  if (message.action === 'feishu_save_content') {
-    saveContent(message.data).then(sendResponse);
-    return true;
-  }
-
-  if (message.action === 'feishu_logout') {
-    logout().then(sendResponse);
-    return true;
-  }
-});
-
 // 导出函数供其他背景脚本使用
 export { startFeishuAuth, getCurrentUser, getDocuments, getWikis, getNotes, saveContent, logout };

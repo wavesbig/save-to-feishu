@@ -1,6 +1,14 @@
 import 'webextension-polyfill';
+import {
+  startFeishuAuth,
+  getCurrentUser,
+  getDocuments,
+  getWikis,
+  getNotes,
+  saveContent,
+  logout,
+} from './feishu-service';
 import { exampleThemeStorage } from '@extension/storage';
-import './feishu-service';
 
 exampleThemeStorage.get().then(theme => {
   console.log('theme', theme);
@@ -8,6 +16,9 @@ exampleThemeStorage.get().then(theme => {
 
 // 监听来自内容脚本和其他页面的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('🚀 ~ message:', message);
+
+  // 处理基础功能消息
   if (message.action === 'open_popup') {
     // 打开扩展的弹出窗口
     chrome.action.openPopup();
@@ -25,7 +36,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   }
 
-  // 其他消息由feishu-service.ts处理
+  // 处理飞书相关消息
+  if (message.action === 'feishu_auth') {
+    startFeishuAuth().then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'feishu_get_user') {
+    getCurrentUser().then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'feishu_get_documents') {
+    getDocuments().then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'feishu_get_wikis') {
+    getWikis().then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'feishu_get_notes') {
+    getNotes().then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'feishu_save_content') {
+    saveContent(message.data).then(sendResponse);
+    return true;
+  }
+
+  if (message.action === 'feishu_logout') {
+    logout().then(sendResponse);
+    return true;
+  }
+
   return false;
 });
 
