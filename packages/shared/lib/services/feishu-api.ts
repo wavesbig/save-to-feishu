@@ -2,18 +2,359 @@
  * 飞书API服务类
  * 封装与飞书开放平台的交互
  */
-import type {
-  FeishuDocument,
-  FeishuNote,
-  FeishuUser,
-  FeishuWiki,
-  SaveContent,
-  SaveHistory,
-  SaveTarget,
-} from '../types/feishu.js';
+import { FEISHU_CONFIG } from '../config/feishu-config.js';
+// import type {
+//   FeishuDocument,
+//   FeishuNote,
+//   FeishuUser,
+//   FeishuWiki,
+//   SaveContent,
+//   SaveHistory,
+//   SaveTarget,
+// } from '../types/feishu.js';
 
-// 飞书API基础URL
-const FEISHU_API_BASE_URL = 'https://open.feishu.cn/open-apis';
+// 授权状态
+let accessToken: string | null = null;
+let refreshToken: string | null = null;
+let userId: string | null = null;
+
+// 初始化时从存储中加载令牌
+chrome.runtime.onInstalled.addListener(async () => {
+  const {
+    accessToken: storedToken,
+    refreshToken: storedRefresh,
+    userId: storedUserId,
+  } = await chrome.storage.local.get(['accessToken', 'refreshToken', 'userId']);
+
+  accessToken = storedToken || null;
+  refreshToken = storedRefresh || null;
+  userId = storedUserId || null;
+});
+
+/**
+ * 启动飞书授权流程
+ */
+const startFeishuAuth = async () => {
+  // 获取APP_ID配置
+  const appId = await FEISHU_CONFIG.getAppId();
+  if (!appId) {
+    console.error('飞书APP_ID未配置');
+    return { success: false, error: '飞书APP_ID未配置，请在设置页面配置' };
+  }
+
+  const authUrl = `${FEISHU_CONFIG.API_BASE_URL}/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(FEISHU_CONFIG.REDIRECT_URI)}&response_type=code`;
+
+  try {
+    // 使用Chrome身份API打开授权窗口
+    const authResult = await chrome.identity.launchWebAuthFlow({
+      url: authUrl,
+      interactive: true,
+    });
+
+    if (authResult) {
+      // 从回调URL中提取授权码
+      const url = new URL(authResult);
+      const code = url.searchParams.get('code');
+
+      if (code) {
+        // 使用授权码获取访问令牌
+        return await getAccessToken(code);
+      }
+    }
+    return { success: false, error: '授权失败' };
+  } catch (error) {
+    console.error('飞书授权流程错误:', error);
+    return { success: false, error: '授权流程出错' };
+  }
+};
+
+/**
+ * 使用授权码获取访问令牌
+ */
+const getAccessToken = async (code: string) => {
+  // 获取APP_ID和APP_SECRET配置
+  const appId = await FEISHU_CONFIG.getAppId();
+  const appSecret = await FEISHU_CONFIG.getAppSecret();
+
+  if (!appId || !appSecret) {
+    console.error('飞书APP_ID或APP_SECRET未配置');
+    return { success: false, error: '飞书应用配置不完整，请在设置页面配置' };
+  }
+
+  try {
+    const response = await fetch(`${FEISHU_CONFIG.API_BASE_URL}/authen/v1/access_token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        app_id: appId,
+        app_secret: appSecret,
+        grant_type: 'authorization_code',
+        code,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.code === 0 && data.data) {
+      // 保存令牌
+      accessToken = data.data.access_token;
+      refreshToken = data.data.refresh_token;
+      userId = data.data.user_id;
+
+      // 存储令牌
+      await chrome.storage.local.set({
+        accessToken,
+        refreshToken,
+        userId,
+      });
+
+      return { success: true };
+    } else {
+      console.error('获取访问令牌失败:', data);
+      return { success: false, error: data.msg || '获取访问令牌失败' };
+    }
+  } catch (error) {
+    console.error('获取访问令牌出错:', error);
+    return { success: false, error: '获取访问令牌出错' };
+  }
+};
+
+/**
+ * 刷新访问令牌
+ */
+const refreshAccessToken = async () => {
+  if (!refreshToken) {
+    return { success: false, error: '没有刷新令牌' };
+  }
+
+  // 获取APP_ID和APP_SECRET配置
+  const appId = await FEISHU_CONFIG.getAppId();
+  const appSecret = await FEISHU_CONFIG.getAppSecret();
+
+  if (!appId || !appSecret) {
+    console.error('飞书APP_ID或APP_SECRET未配置');
+    return { success: false, error: '飞书应用配置不完整，请在设置页面配置' };
+  }
+
+  try {
+    const response = await fetch(`${FEISHU_CONFIG.API_BASE_URL}/authen/v1/refresh_access_token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        app_id: appId,
+        app_secret: appSecret,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.code === 0 && data.data) {
+      // 更新令牌
+      accessToken = data.data.access_token;
+      refreshToken = data.data.refresh_token;
+
+      // 存储令牌
+      await chrome.storage.local.set({
+        accessToken,
+        refreshToken,
+      });
+
+      return { success: true };
+    } else {
+      console.error('刷新访问令牌失败:', data);
+      return { success: false, error: data.msg || '刷新访问令牌失败' };
+    }
+  } catch (error) {
+    console.error('刷新访问令牌出错:', error);
+    return { success: false, error: '刷新访问令牌出错' };
+  }
+};
+
+/**
+ * 发送API请求
+ */
+const sendApiRequest = async (
+  endpoint: string,
+  method: string = 'GET',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body?: any,
+) => {
+  // 检查是否有访问令牌
+  if (!accessToken) {
+    // 尝试刷新令牌
+    if (refreshToken) {
+      const refreshResult = await refreshAccessToken();
+      if (!refreshResult.success) {
+        return { success: false, error: '未授权或令牌已过期' };
+      }
+    } else {
+      return { success: false, error: '未授权' };
+    }
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    };
+
+    const options: RequestInit = {
+      method,
+      headers,
+    };
+
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+      options.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(`${FEISHU_CONFIG.API_BASE_URL}${endpoint}`, options);
+    const data = await response.json();
+
+    // 处理令牌过期情况
+    if (data.code === 99991663) {
+      const refreshResult = await refreshAccessToken();
+      if (refreshResult.success) {
+        // 重试请求
+        return sendApiRequest(endpoint, method, body);
+      } else {
+        return { success: false, error: '令牌已过期且无法刷新' };
+      }
+    }
+
+    return { success: data.code === 0, data: data.data, error: data.msg };
+  } catch (error) {
+    console.error('API请求失败:', error);
+    return { success: false, error: '请求失败' };
+  }
+};
+
+/**
+ * 获取当前用户信息
+ */
+const getCurrentUser = async () => await sendApiRequest('/authen/v1/user_info');
+
+/**
+ * 获取用户的文档列表
+ */
+const getDocuments = async () => await sendApiRequest('/drive/v1/recent_used_docs');
+
+/**
+ * 获取用户的知识库列表
+ */
+const getWikis = async () => await sendApiRequest('/wiki/v2/spaces');
+
+/**
+ * 获取用户的便签列表
+ */
+const getNotes = async () => await sendApiRequest('/bitable/v1/apps/notes');
+
+/**
+ * 创建文档
+ */
+const createDocument = async (title: string, url: string, content: string) =>
+  await sendApiRequest('/doc/v2/create', 'POST', {
+    title,
+    content: `<p><a href="${url}">${url}</a></p><p>${content}</p>`,
+  });
+
+/**
+ * 创建知识库文档
+ */
+const createWikiDocument = async (wikiId: string, title: string, url: string, content: string) =>
+  await sendApiRequest(`/wiki/v2/spaces/${wikiId}/nodes`, 'POST', {
+    title,
+    obj_type: 'doc',
+    content: `<p><a href="${url}">${url}</a></p><p>${content}</p>`,
+  });
+
+/**
+ * 创建便签
+ */
+const createNote = async (title: string, url: string, content: string) =>
+  await sendApiRequest('/bitable/v1/apps/notes', 'POST', {
+    title,
+    body: {
+      content: `${url}\n\n${content}`,
+    },
+  });
+
+/**
+ * 保存内容到飞书
+ */
+const saveContent = async (data: {
+  title: string;
+  url: string;
+  content: string;
+  target: 'doc' | 'wiki' | 'note';
+  targetId?: string;
+  tags?: string[];
+}) => {
+  const { title, url, content, target, targetId, tags } = data;
+  let result;
+
+  switch (target) {
+    case 'doc':
+      result = await createDocument(title, url, content);
+      break;
+    case 'wiki':
+      if (targetId) {
+        result = await createWikiDocument(targetId, title, url, content);
+      } else {
+        return { success: false, error: '未指定知识库ID' };
+      }
+      break;
+    case 'note':
+      result = await createNote(title, url, content);
+      break;
+    default:
+      return { success: false, error: '不支持的目标类型' };
+  }
+
+  if (result.success) {
+    // 保存历史记录
+    const { saveHistory = [] } = await chrome.storage.local.get('saveHistory');
+    saveHistory.unshift({
+      id: result.data.obj_token || result.data.node_token || result.data.note_id,
+      title,
+      url,
+      target,
+      targetId: targetId || result.data.obj_token || result.data.node_token || result.data.note_id,
+      saveTime: Date.now(),
+      tags: tags || [],
+    });
+
+    // 限制历史记录数量为50条
+    if (saveHistory.length > 50) {
+      saveHistory.pop();
+    }
+
+    await chrome.storage.local.set({ saveHistory });
+  }
+
+  return result;
+};
+
+/**
+ * 退出登录
+ */
+const logout = async () => {
+  accessToken = null;
+  refreshToken = null;
+  userId = null;
+
+  await chrome.storage.local.remove(['accessToken', 'refreshToken', 'userId']);
+
+  return { success: true };
+};
+
+// 导出函数供其他背景脚本使用
+export { startFeishuAuth, getCurrentUser, getDocuments, getWikis, getNotes, saveContent, logout };
 
 // 飞书API响应类型
 export interface FeishuApiResponse<T> {
@@ -21,361 +362,3 @@ export interface FeishuApiResponse<T> {
   msg: string;
   data?: T;
 }
-
-/**
- * 飞书API服务类
- */
-export class FeishuApiService {
-  private accessToken: string | null = null;
-  private refreshToken: string | null = null;
-  private userId: string | null = null;
-
-  /**
-   * 初始化服务
-   */
-  constructor() {
-    this.loadTokens();
-  }
-
-  /**
-   * 从存储中加载令牌
-   */
-  private async loadTokens() {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        const { accessToken, refreshToken, userId } = await chrome.storage.local.get([
-          'accessToken',
-          'refreshToken',
-          'userId',
-        ]);
-        this.accessToken = accessToken || null;
-        this.refreshToken = refreshToken || null;
-        this.userId = userId || null;
-      }
-    } catch (error) {
-      console.error('加载令牌失败:', error);
-    }
-  }
-
-  /**
-   * 保存令牌到存储
-   */
-  private async saveTokens() {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        await chrome.storage.local.set({
-          accessToken: this.accessToken,
-          refreshToken: this.refreshToken,
-          userId: this.userId,
-        });
-      }
-    } catch (error) {
-      console.error('保存令牌失败:', error);
-    }
-  }
-
-  /**
-   * 检查是否已授权
-   */
-  public isAuthorized(): boolean {
-    return !!this.accessToken;
-  }
-
-  /**
-   * 获取授权URL
-   */
-  public getAuthUrl(appId: string, redirectUri: string): string {
-    const encodedRedirectUri = encodeURIComponent(redirectUri);
-    return `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodedRedirectUri}&response_type=code`;
-  }
-
-  /**
-   * 处理授权回调
-   * @param code 授权码
-   * @param appId 应用ID
-   * @param appSecret 应用密钥
-   */
-  public async handleAuthCallback(code: string, appId: string, appSecret: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${FEISHU_API_BASE_URL}/authen/v1/access_token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          app_id: appId,
-          app_secret: appSecret,
-          grant_type: 'authorization_code',
-          code,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.code === 0) {
-        this.accessToken = data.data.access_token;
-        this.refreshToken = data.data.refresh_token;
-        this.userId = data.data.user_id;
-        await this.saveTokens();
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('授权回调处理失败:', error);
-      return false;
-    }
-  }
-
-  /**
-   * 刷新访问令牌
-   */
-  private async refreshAccessToken(appId: string, appSecret: string): Promise<boolean> {
-    if (!this.refreshToken) return false;
-
-    try {
-      const response = await fetch(`${FEISHU_API_BASE_URL}/authen/v1/refresh_access_token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          app_id: appId,
-          app_secret: appSecret,
-          grant_type: 'refresh_token',
-          refresh_token: this.refreshToken,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.code === 0) {
-        this.accessToken = data.data.access_token;
-        this.refreshToken = data.data.refresh_token;
-        await this.saveTokens();
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('刷新令牌失败:', error);
-      return false;
-    }
-  }
-
-  /**
-   * 发送API请求
-   */
-  private async request<T>(
-    endpoint: string,
-    method: string = 'GET',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    body?: any,
-    appId?: string,
-    appSecret?: string,
-  ): Promise<FeishuApiResponse<T>> {
-    if (!this.accessToken && appId && appSecret) {
-      const refreshed = await this.refreshAccessToken(appId, appSecret);
-      if (!refreshed) {
-        return { code: 401, msg: '未授权或令牌已过期' };
-      }
-    }
-
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-
-      if (this.accessToken) {
-        headers['Authorization'] = `Bearer ${this.accessToken}`;
-      }
-
-      const options: RequestInit = {
-        method,
-        headers,
-      };
-
-      if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-        options.body = JSON.stringify(body);
-      }
-
-      const response = await fetch(`${FEISHU_API_BASE_URL}${endpoint}`, options);
-      const data = await response.json();
-
-      // 处理令牌过期情况
-      if (data.code === 99991663 && appId && appSecret) {
-        const refreshed = await this.refreshAccessToken(appId, appSecret);
-        if (refreshed) {
-          return this.request(endpoint, method, body);
-        }
-      }
-
-      return data;
-    } catch (error) {
-      console.error('API请求失败:', error);
-      return { code: 500, msg: '请求失败' };
-    }
-  }
-
-  /**
-   * 获取当前用户信息
-   */
-  public async getCurrentUser(): Promise<FeishuUser | null> {
-    const response = await this.request<{ user: FeishuUser }>('/authen/v1/user_info');
-    return response.code === 0 && response.data ? response.data.user : null;
-  }
-
-  /**
-   * 获取用户的文档列表
-   */
-  public async getDocuments(): Promise<FeishuDocument[]> {
-    const response = await this.request<{ items: FeishuDocument[] }>('/drive/v1/recent_used_docs');
-    return response.code === 0 && response.data ? response.data.items : [];
-  }
-
-  /**
-   * 获取用户的知识库列表
-   */
-  public async getWikis(): Promise<FeishuWiki[]> {
-    const response = await this.request<{ items: FeishuWiki[] }>('/wiki/v2/spaces');
-    return response.code === 0 && response.data ? response.data.items : [];
-  }
-
-  /**
-   * 获取用户的便签列表
-   */
-  public async getNotes(): Promise<FeishuNote[]> {
-    const response = await this.request<{ notes: FeishuNote[] }>('/bitable/v1/apps/notes');
-    return response.code === 0 && response.data ? response.data.notes : [];
-  }
-
-  /**
-   * 创建文档
-   */
-  public async createDocument(content: SaveContent): Promise<string | null> {
-    const response = await this.request<{ obj_token: string }>('/doc/v2/create', 'POST', {
-      title: content.title,
-      content: `<p>${content.url}</p><p>${content.content}</p>`,
-    });
-    return response.code === 0 && response.data ? response.data.obj_token : null;
-  }
-
-  /**
-   * 创建知识库文档
-   */
-  public async createWikiDocument(wikiId: string, content: SaveContent): Promise<string | null> {
-    const response = await this.request<{ node_token: string }>(`/wiki/v2/spaces/${wikiId}/nodes`, 'POST', {
-      title: content.title,
-      obj_type: 'doc',
-      content: `<p>${content.url}</p><p>${content.content}</p>`,
-    });
-    return response.code === 0 && response.data ? response.data.node_token : null;
-  }
-
-  /**
-   * 创建便签
-   */
-  public async createNote(content: SaveContent): Promise<string | null> {
-    const response = await this.request<{ note_id: string }>('/bitable/v1/apps/notes', 'POST', {
-      title: content.title,
-      body: {
-        content: `${content.url}\n\n${content.content}`,
-      },
-    });
-    return response.code === 0 && response.data ? response.data.note_id : null;
-  }
-
-  /**
-   * 保存内容到飞书
-   */
-  public async saveContent(content: SaveContent, target: SaveTarget, targetId?: string): Promise<string | null> {
-    let savedId: string | null = null;
-
-    switch (target) {
-      case 'doc':
-        savedId = await this.createDocument(content);
-        break;
-      case 'wiki':
-        if (targetId) {
-          savedId = await this.createWikiDocument(targetId, content);
-        }
-        break;
-      case 'note':
-        savedId = await this.createNote(content);
-        break;
-    }
-
-    if (savedId) {
-      // 保存历史记录
-      await this.saveHistory({
-        id: savedId,
-        title: content.title,
-        url: content.url,
-        target,
-        targetId: targetId || savedId,
-        saveTime: Date.now(),
-      });
-    }
-
-    return savedId;
-  }
-
-  /**
-   * 保存历史记录
-   */
-  private async saveHistory(history: SaveHistory): Promise<void> {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        const { saveHistory = [] } = await chrome.storage.local.get('saveHistory');
-        saveHistory.unshift(history);
-
-        // 限制历史记录数量为50条
-        if (saveHistory.length > 50) {
-          saveHistory.pop();
-        }
-
-        await chrome.storage.local.set({ saveHistory });
-      }
-    } catch (error) {
-      console.error('保存历史记录失败:', error);
-    }
-  }
-
-  /**
-   * 获取保存历史记录
-   */
-  public async getHistory(): Promise<SaveHistory[]> {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        const { saveHistory = [] } = await chrome.storage.local.get('saveHistory');
-        return saveHistory;
-      }
-      return [];
-    } catch (error) {
-      console.error('获取历史记录失败:', error);
-      return [];
-    }
-  }
-
-  /**
-   * 清除保存历史记录
-   */
-  public async clearHistory(): Promise<void> {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        await chrome.storage.local.set({ saveHistory: [] });
-      }
-    } catch (error) {
-      console.error('清除历史记录失败:', error);
-    }
-  }
-
-  /**
-   * 退出登录
-   */
-  public async logout(): Promise<void> {
-    this.accessToken = null;
-    this.refreshToken = null;
-    this.userId = null;
-    await this.saveTokens();
-  }
-}
-
-// 导出单例实例
-export const feishuApi = new FeishuApiService();
