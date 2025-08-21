@@ -203,7 +203,7 @@ const SaveToFeishu: React.FC = () => {
 
   // 渲染主界面
   return (
-    <div className="min-w-[400px] p-4">
+    <div className="p-4">
       {/* 头部 */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center">
