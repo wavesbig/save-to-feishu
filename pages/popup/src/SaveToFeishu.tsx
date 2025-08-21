@@ -70,6 +70,7 @@ const SaveToFeishu: React.FC = () => {
         if (tab.id) {
           try {
             const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
+            console.log('🚀 ~ init ~ response:', response);
             if (response && response.success && response.data) {
               setPageInfo({
                 title: response.data.title || tab.title || '',
