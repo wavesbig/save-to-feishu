@@ -2,14 +2,6 @@
  * 飞书相关类型定义
  */
 
-// 用户信息
-export interface FeishuUser {
-  user_id: string;
-  name: string;
-  avatar_url: string;
-  email?: string;
-}
-
 // 保存目标类型
 export type SaveTarget = 'doc' | 'wiki' | 'note';
 

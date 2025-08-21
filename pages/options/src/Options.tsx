@@ -2,14 +2,12 @@ import { useStorage } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
 import { Button } from '@extension/ui';
 import { useEffect, useState } from 'react';
-import type { FeishuUser, FeishuWiki, SaveTarget } from '@extension/shared';
+import type { FeishuWiki, SaveTarget } from '@extension/shared';
 import type React from 'react';
 
 const Options: React.FC = () => {
   // 状态
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<FeishuUser | null>(null);
   const [wikis, setWikis] = useState<FeishuWiki[]>([]);
   const [defaultTarget, setDefaultTarget] = useState<SaveTarget>('doc');
   const [defaultWikiId, setDefaultWikiId] = useState<string>('');
@@ -30,79 +28,33 @@ const Options: React.FC = () => {
   // 初始化
   useEffect(() => {
     const init = async () => {
-      setIsLoading(true);
       try {
-        // 获取当前用户信息
-        const userResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_user' });
-        if (userResponse.success && userResponse.data) {
-          setUser(userResponse.data.user);
-
-          // 获取知识库列表
-          const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
-          if (wikisResponse.success && wikisResponse.data) {
-            setWikis(wikisResponse.data.items || []);
-          }
-
-          // 设置默认值
-          if (savePreferences) {
-            setDefaultTarget(savePreferences.defaultTarget);
-            setDefaultWikiId(savePreferences.defaultWikiId || '');
-            setIncludeTags(savePreferences.includeTags);
-            setIncludeScreenshot(savePreferences.includeScreenshot);
-          }
-
-          // 加载飞书应用配置
-          const { feishuAppId, feishuAppSecret } = await chrome.storage.local.get(['feishuAppId', 'feishuAppSecret']);
-          setAppId(feishuAppId || '');
-          setAppSecret(feishuAppSecret || '');
-        } else {
-          setError('未登录飞书账号');
+        // 获取知识库列表
+        const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
+        if (wikisResponse.success && wikisResponse.data) {
+          setWikis(wikisResponse.data.items || []);
         }
+
+        // 设置默认值
+        if (savePreferences) {
+          setDefaultTarget(savePreferences.defaultTarget);
+          setDefaultWikiId(savePreferences.defaultWikiId || '');
+          setIncludeTags(savePreferences.includeTags);
+          setIncludeScreenshot(savePreferences.includeScreenshot);
+        }
+
+        // 加载飞书应用配置
+        const { feishuAppId, feishuAppSecret } = await chrome.storage.local.get(['feishuAppId', 'feishuAppSecret']);
+        setAppId(feishuAppId || '');
+        setAppSecret(feishuAppSecret || '');
       } catch (error) {
         console.error('初始化失败:', error);
         setError('初始化失败');
-      } finally {
-        setIsLoading(false);
       }
     };
 
     init();
   }, [savePreferences]);
-
-  // 处理授权
-  const handleAuth = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await chrome.runtime.sendMessage({ action: 'feishu_auth' });
-      if (response.success) {
-        // 重新加载页面
-        window.location.reload();
-      } else {
-        setError(response.error || '授权失败');
-      }
-    } catch (error) {
-      console.error('授权失败:', error);
-      setError('授权失败');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 处理退出登录
-  const handleLogout = async () => {
-    setIsLoading(true);
-
-    try {
-      await chrome.runtime.sendMessage({ action: 'feishu_logout' });
-      setUser(null);
-    } catch (error) {
-      console.error('退出登录失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // 处理保存设置
   const handleSaveSettings = async () => {
@@ -161,28 +113,6 @@ const Options: React.FC = () => {
     }
   };
 
-  // 渲染登录界面
-  if (!user) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center p-6">
-        <div className="mb-4 rounded-full bg-blue-100 p-3">
-          <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="h-12 w-12" />
-        </div>
-        <h1 className="mb-6 text-xl font-bold">保存到飞书 - 设置11</h1>
-
-        {error && (
-          <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 w-full max-w-md rounded-md border p-3 text-center">
-            {error}
-          </div>
-        )}
-
-        <Button className="w-full max-w-md" onClick={handleAuth} disabled={isLoading}>
-          {isLoading ? '正在授权...' : '登录飞书账号'}
-        </Button>
-      </div>
-    );
-  }
-
   // 渲染设置界面
   return (
     <div className="container mx-auto max-w-2xl p-6">
@@ -190,14 +120,6 @@ const Options: React.FC = () => {
         <div className="flex items-center">
           <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="mr-3 h-10 w-10" />
           <h1 className="text-2xl font-bold">保存到飞书 - 设置</h1>
-        </div>
-
-        <div className="flex items-center">
-          <img src={user.avatar_url} alt={user.name} className="mr-2 h-8 w-8 rounded-full" />
-          <span className="mr-3 text-sm">{user.name}</span>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-500 hover:text-gray-700">
-            退出
-          </Button>
         </div>
       </div>
 

@@ -69,7 +69,7 @@ export const saveContent = async (data: {
   targetId?: string;
   tags?: string[];
 }) => {
-  const { title, url, content, target, targetId, tags } = data;
+  const { title, url, content, target, targetId } = data;
   let result;
 
   // eslint-disable-next-line no-useless-catch
@@ -92,26 +92,26 @@ export const saveContent = async (data: {
         throw new Error('不支持的目标类型');
     }
 
-    if (result) {
-      // 保存历史记录
-      const { saveHistory = [] } = await chrome.storage.local.get('saveHistory');
-      saveHistory.unshift({
-        id: result.obj_token || result.node_token || result.note_id,
-        title,
-        url,
-        target,
-        targetId: targetId || result.obj_token || result.node_token || result.note_id,
-        saveTime: Date.now(),
-        tags: tags || [],
-      });
+    // if (result) {
+    //   // 保存历史记录
+    //   const { saveHistory = [] } = await chrome.storage.local.get('saveHistory');
+    //   saveHistory.unshift({
+    //     id: result.obj_token || result.node_token || result.note_id,
+    //     title,
+    //     url,
+    //     target,
+    //     targetId: targetId || result.obj_token || result.node_token || result.note_id,
+    //     saveTime: Date.now(),
+    //     tags: tags || [],
+    //   });
 
-      // 限制历史记录数量为50条
-      if (saveHistory.length > 50) {
-        saveHistory.pop();
-      }
+    //   // 限制历史记录数量为50条
+    //   if (saveHistory.length > 50) {
+    //     saveHistory.pop();
+    //   }
 
-      await chrome.storage.local.set({ saveHistory });
-    }
+    //   await chrome.storage.local.set({ saveHistory });
+    // }
 
     return result;
   } catch (error) {

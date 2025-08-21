@@ -3,14 +3,11 @@ import { useStorage, FEISHU_CONFIG } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
 import { Button, Input, Textarea } from '@extension/ui';
 import { useEffect, useState } from 'react';
-import type { FeishuUser, FeishuWiki, SaveContent, SaveTarget } from '@extension/shared';
+import type { FeishuWiki, SaveContent, SaveTarget } from '@extension/shared';
 import type React from 'react';
 
 const SaveToFeishu: React.FC = () => {
-  // 状态
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<FeishuUser | null>(null);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
   const [pageInfo, setPageInfo] = useState<{ title: string; url: string; content: string }>({
     title: '',
@@ -30,50 +27,13 @@ const SaveToFeishu: React.FC = () => {
 
   // 初始化
   useEffect(() => {
-    setIsLoading(true);
     init();
   }, [savePreferences]);
-
-  // 处理授权
-  const handleAuth = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await chrome.runtime.sendMessage({ action: 'feishu_auth' });
-      if (response.success) {
-        // 重新加载页面
-        window.location.reload();
-      } else {
-        setError(response.error || '授权失败');
-      }
-    } catch (error) {
-      console.error('授权失败:', error);
-      setError('授权失败');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 处理退出登录
-  const handleLogout = async () => {
-    setIsLoading(true);
-
-    try {
-      await chrome.runtime.sendMessage({ action: 'feishu_logout' });
-      setUser(null);
-    } catch (error) {
-      console.error('退出登录失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // 处理配置保存完成
   const handleConfigSaved = () => {
     // 重新初始化，检查配置状态
     setIsConfigured(null);
-    setIsLoading(true);
     init();
   };
 
@@ -86,89 +46,77 @@ const SaveToFeishu: React.FC = () => {
 
       if (!appId || !appSecret) {
         setIsConfigured(false);
-        setIsLoading(false);
         return;
       }
 
       setIsConfigured(true);
 
-      // 获取当前用户信息
-      const userResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_user' });
-      console.log('🚀 ~ init ~ userResponse:', userResponse);
-      if (userResponse.success && userResponse.data) {
-        setUser(userResponse.data.user);
+      // 获取知识库列表
+      const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
+      if (wikisResponse.success && wikisResponse.data) {
+        setWikis(wikisResponse.data.items || []);
+      }
 
-        // 获取知识库列表
-        const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
-        if (wikisResponse.success && wikisResponse.data) {
-          setWikis(wikisResponse.data.items || []);
-        }
+      // 获取当前页面信息
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.url && tab.title) {
+        setPageInfo({
+          title: tab.title || '',
+          url: tab.url || '',
+          content: '',
+        });
 
-        // 获取当前页面信息
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab && tab.url && tab.title) {
-          setPageInfo({
-            title: tab.title || '',
-            url: tab.url || '',
-            content: '',
-          });
-
-          // 通过content script获取页面内容
-          if (tab.id) {
+        // 通过content script获取页面内容
+        if (tab.id) {
+          try {
+            const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
+            if (response && response.success && response.data) {
+              setPageInfo({
+                title: response.data.title || tab.title || '',
+                url: response.data.url || tab.url || '',
+                content: response.data.content || '',
+              });
+            }
+          } catch (error) {
+            console.error('获取页面内容失败:', error);
+            // 如果content script获取失败，使用fallback方法
             try {
-              const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
-              if (response && response.success && response.data) {
-                setPageInfo({
-                  title: response.data.title || tab.title || '',
-                  url: response.data.url || tab.url || '',
-                  content: response.data.content || '',
-                });
+              const [result] = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => {
+                  const getPageContent = () => {
+                    const article = document.querySelector('article');
+                    if (article) return article.innerText.substring(0, 1000);
+                    const main = document.querySelector('main');
+                    if (main) return main.innerText.substring(0, 1000);
+                    return document.body.innerText.substring(0, 1000);
+                  };
+                  return getPageContent();
+                },
+              });
+              if (result && result.result) {
+                setPageInfo(prev => ({
+                  ...prev,
+                  content: result.result || '',
+                }));
               }
-            } catch (error) {
-              console.error('获取页面内容失败:', error);
-              // 如果content script获取失败，使用fallback方法
-              try {
-                const [result] = await chrome.scripting.executeScript({
-                  target: { tabId: tab.id },
-                  func: () => {
-                    const getPageContent = () => {
-                      const article = document.querySelector('article');
-                      if (article) return article.innerText.substring(0, 1000);
-                      const main = document.querySelector('main');
-                      if (main) return main.innerText.substring(0, 1000);
-                      return document.body.innerText.substring(0, 1000);
-                    };
-                    return getPageContent();
-                  },
-                });
-                if (result && result.result) {
-                  setPageInfo(prev => ({
-                    ...prev,
-                    content: result.result || '',
-                  }));
-                }
-              } catch (fallbackError) {
-                console.error('Fallback获取页面内容失败:', fallbackError);
-              }
+            } catch (fallbackError) {
+              console.error('Fallback获取页面内容失败:', fallbackError);
             }
           }
         }
+      }
 
-        // 设置默认目标
-        if (savePreferences) {
-          setSelectedTarget(savePreferences.defaultTarget);
-          if (savePreferences.defaultWikiId) {
-            setSelectedWikiId(savePreferences.defaultWikiId);
-          }
+      // 设置默认目标
+      if (savePreferences) {
+        setSelectedTarget(savePreferences.defaultTarget);
+        if (savePreferences.defaultWikiId) {
+          setSelectedWikiId(savePreferences.defaultWikiId);
         }
-      } else {
-        setError('未登录飞书账号');
       }
     } catch (error) {
       console.error('初始化失败:', error);
       setError('初始化失败');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -233,28 +181,6 @@ const SaveToFeishu: React.FC = () => {
     return <ConfigPrompt onConfigSaved={handleConfigSaved} />;
   }
 
-  // 渲染登录界面
-  if (!user) {
-    return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center p-6">
-        <div className="mb-4 rounded-full bg-blue-100 p-3">
-          <img src={chrome.runtime.getURL('icon-128.png')} alt="Save to Feishu" className="h-12 w-12" />
-        </div>
-        <h1 className="mb-6 text-xl font-bold">保存到飞书</h1>
-
-        {error && (
-          <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 w-full rounded-md border p-3 text-center">
-            {error}
-          </div>
-        )}
-
-        <Button className="w-full" onClick={handleAuth} disabled={isLoading}>
-          {isLoading ? '正在授权...' : '登录飞书账号'}
-        </Button>
-      </div>
-    );
-  }
-
   // 渲染保存成功界面
   if (saveSuccess) {
     return (
@@ -283,14 +209,6 @@ const SaveToFeishu: React.FC = () => {
         <div className="flex items-center">
           <img src={chrome.runtime.getURL('icon-34.png')} alt="Save to Feishu" className="mr-2 h-6 w-6" />
           <h1 className="text-lg font-bold">保存到飞书</h1>
-        </div>
-
-        <div className="flex items-center">
-          <img src={user.avatar_url} alt={user.name} className="mr-2 h-6 w-6 rounded-full" />
-          <span className="mr-2 text-sm">{user.name}</span>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-500 hover:text-gray-700">
-            退出
-          </Button>
         </div>
       </div>
 

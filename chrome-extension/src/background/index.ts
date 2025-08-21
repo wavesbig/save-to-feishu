@@ -1,13 +1,5 @@
 import 'webextension-polyfill';
-import {
-  startFeishuAuth,
-  getCurrentUser,
-  getDocuments,
-  getWikis,
-  getNotes,
-  saveContent,
-  logout,
-} from './feishu-service';
+import { getDocuments, getWikis, getNotes, saveContent, logout } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 
 exampleThemeStorage.get().then(theme => {
@@ -34,17 +26,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return true;
     }
-  }
-
-  // 处理飞书相关消息
-  if (message.action === 'feishu_auth') {
-    startFeishuAuth().then(sendResponse);
-    return true;
-  }
-
-  if (message.action === 'feishu_get_user') {
-    getCurrentUser().then(sendResponse);
-    return true;
   }
 
   if (message.action === 'feishu_get_documents') {
@@ -74,6 +55,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
-
-console.log('Save to Feishu Background loaded');
-console.log("Edit 'chrome-extension/src/background/index.ts' and save to reload.");

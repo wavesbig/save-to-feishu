@@ -3,13 +3,12 @@ import { useStorage, withErrorBoundary, withSuspense } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
 import { Button, ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import { useEffect, useState } from 'react';
-import type { SaveHistory, FeishuUser } from '@extension/shared';
+import type { SaveHistory } from '@extension/shared';
 import type React from 'react';
 
 const SidePanel: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<FeishuUser | null>(null);
   const [history, setHistory] = useState<SaveHistory[]>([]);
   const [isClearing, setIsClearing] = useState(false);
 
@@ -21,10 +20,6 @@ const SidePanel: React.FC = () => {
       setIsLoading(true);
       try {
         // 获取当前用户信息
-        const userResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_user' });
-        if (userResponse.success && userResponse.data) {
-          setUser(userResponse.data.user);
-        }
 
         // 获取保存历史
         if (saveHistory) {
@@ -97,12 +92,6 @@ const SidePanel: React.FC = () => {
             <img src={chrome.runtime.getURL('icon-34.png')} alt="Save to Feishu" className="mr-2 h-6 w-6" />
             <h1 className="text-lg font-bold">保存历史</h1>
           </div>
-          {user && (
-            <div className="flex items-center">
-              <img src={user.avatar_url} alt={user.name} className="mr-2 h-6 w-6 rounded-full" />
-              <span className="text-sm text-gray-600">{user.name}</span>
-            </div>
-          )}
         </div>
       </div>
 
