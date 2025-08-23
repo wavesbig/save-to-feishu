@@ -278,8 +278,6 @@ class FeishuRequest {
    */
   private handlePermissionError(data: FeishuApiResponse): void {
     try {
-      console.log(data.msg);
-
       // 从msg字段中解析权限申请链接
       const msgLinkMatch = data.msg?.match(/https:\/\/[^\s]+/);
       const msgLink = msgLinkMatch ? msgLinkMatch[0] : undefined;

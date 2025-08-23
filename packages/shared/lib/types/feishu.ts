@@ -57,3 +57,48 @@ export interface SavePreferences {
   includeTags: boolean;
   includeScreenshot: boolean;
 }
+
+// 文档创建数据类型
+export interface CreateDocumentData {
+  title: string;
+  content: {
+    blocks: Array<{
+      block_type: string;
+      text?: {
+        elements: Array<{
+          text_run: {
+            content: string;
+            text_element_style?: {
+              link?: {
+                url: string;
+              };
+            };
+          };
+        }>;
+      };
+    }>;
+  };
+}
+
+// 知识库文档创建数据类型
+export interface CreateWikiDocumentData {
+  title: string;
+  obj_type: 'doc';
+  content: string;
+}
+
+// 便签创建数据类型
+export interface CreateNoteData {
+  title: string;
+  body: {
+    content: string;
+  };
+}
+
+// 用户信息类型
+export interface FeishuUser {
+  user_id: string;
+  name: string;
+  avatar_url?: string;
+  email?: string;
+}

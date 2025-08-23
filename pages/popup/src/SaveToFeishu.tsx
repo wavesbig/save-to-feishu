@@ -1,5 +1,5 @@
 import ConfigPrompt from './ConfigPrompt';
-import { useStorage, FEISHU_CONFIG } from '@extension/shared';
+import { useStorage, FEISHU_CONFIG, MessageType } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
 import {
   Button,
@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@extension/ui';
 import { useEffect, useState } from 'react';
-import type { FeishuWiki, SaveContent, SaveTarget } from '@extension/shared';
+import type { FeishuWiki, SaveContent, SaveTarget, MessageResponse } from '@extension/shared';
 import type React from 'react';
 
 const SaveToFeishu: React.FC = () => {
@@ -68,10 +68,16 @@ const SaveToFeishu: React.FC = () => {
       setIsConfigured(true);
 
       // 获取知识库列表
-      const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
-
-      if (wikisResponse.success && wikisResponse.data) {
-        setWikis(wikisResponse.data.items || []);
+      try {
+        const wikisResponse: MessageResponse = await chrome.runtime.sendMessage({
+          action: MessageType.GET_WIKIS,
+          timestamp: Date.now(),
+        });
+        if (wikisResponse.success && wikisResponse.data && wikisResponse.data.items) {
+          setWikis(wikisResponse.data.items);
+        }
+      } catch (error) {
+        console.error('获取知识库列表失败:', error);
       }
 
       // 获取当前页面信息
@@ -171,9 +177,10 @@ const SaveToFeishu: React.FC = () => {
         content.targetId = selectedWikiId;
       }
 
-      const response = await chrome.runtime.sendMessage({
-        action: 'feishu_save_content',
+      const response: MessageResponse = await chrome.runtime.sendMessage({
+        action: MessageType.SAVE_TO_FEISHU,
         data: content,
+        timestamp: Date.now(),
       });
 
       if (response.success) {
@@ -228,7 +235,7 @@ const SaveToFeishu: React.FC = () => {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center">
           <img src={chrome.runtime.getURL('icon-34.png')} alt="Save to Feishu" className="mr-2 h-6 w-6" />
-          <h1 className="text-lg font-bold">保存到飞书</h1>
+          <h1 className="text-lg font-bold">保存到飞书111</h1>
         </div>
       </div>
 

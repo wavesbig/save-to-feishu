@@ -7,13 +7,13 @@
 export enum MessageType {
   SAVE_TO_FEISHU = 'SAVE_TO_FEISHU',
   GET_CURRENT_TAB = 'GET_CURRENT_TAB',
+  GET_WIKIS = 'GET_WIKIS',
   OPEN_POPUP = 'OPEN_POPUP',
   CONTENT_SCRIPT_READY = 'CONTENT_SCRIPT_READY',
   BACKGROUND_READY = 'BACKGROUND_READY',
   SAVE_SUCCESS = 'SAVE_SUCCESS',
   SAVE_ERROR = 'SAVE_ERROR',
   GET_SETTINGS = 'GET_SETTINGS',
-  UPDATE_SETTINGS = 'UPDATE_SETTINGS',
   SHOW_TOAST = 'SHOW_TOAST',
 }
 
@@ -35,6 +35,11 @@ export interface SaveToFeishuMessage extends BaseMessage {
     target?: 'doc' | 'wiki' | 'note';
     targetId?: string;
   };
+}
+
+// 获取知识库列表消息
+export interface GetWikisMessage extends BaseMessage {
+  action: MessageType.GET_WIKIS;
 }
 
 // 获取当前标签页消息
@@ -82,14 +87,6 @@ export interface GetSettingsMessage extends BaseMessage {
   action: MessageType.GET_SETTINGS;
 }
 
-// 更新设置消息
-export interface UpdateSettingsMessage extends BaseMessage {
-  action: MessageType.UPDATE_SETTINGS;
-  data: {
-    settings: Record<string, any>;
-  };
-}
-
 // 显示 Toast 消息
 export interface ShowToastMessage extends BaseMessage {
   action: MessageType.SHOW_TOAST;
@@ -111,6 +108,7 @@ export interface ShowToastResponse {
 // 联合消息类型
 export type ChromeMessage =
   | SaveToFeishuMessage
+  | GetWikisMessage
   | GetCurrentTabMessage
   | OpenPopupMessage
   | ContentScriptReadyMessage
@@ -118,7 +116,6 @@ export type ChromeMessage =
   | SaveSuccessMessage
   | SaveErrorMessage
   | GetSettingsMessage
-  | UpdateSettingsMessage
   | ShowToastMessage;
 
 // 消息响应类型
