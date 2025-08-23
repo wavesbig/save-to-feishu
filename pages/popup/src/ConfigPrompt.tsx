@@ -1,5 +1,5 @@
-import { Button, Input } from '@extension/ui';
-import { useState } from 'react';
+import { Button, Input, Label } from '@extension/ui';
+import { useState, useEffect } from 'react';
 import type React from 'react';
 
 interface ConfigPromptProps {
@@ -11,6 +11,50 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
   const [appSecret, setAppSecret] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 组件加载时从存储中读取数据
+  useEffect(() => {
+    const loadStoredData = async () => {
+      try {
+        const result = await chrome.storage.local.get(['feishuAppId', 'feishuAppSecret', 'tempAppId', 'tempAppSecret']);
+
+        // 优先使用已保存的配置，如果没有则使用临时保存的输入
+        if (result.feishuAppId && result.feishuAppSecret) {
+          setAppId(result.feishuAppId);
+          setAppSecret(result.feishuAppSecret);
+        } else if (result.tempAppId || result.tempAppSecret) {
+          setAppId(result.tempAppId || '');
+          setAppSecret(result.tempAppSecret || '');
+        }
+      } catch (error) {
+        console.error('加载存储数据失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStoredData();
+  }, []);
+
+  // 实时保存用户输入到临时存储
+  const handleAppIdChange = async (value: string) => {
+    setAppId(value);
+    try {
+      await chrome.storage.local.set({ tempAppId: value });
+    } catch (error) {
+      console.error('保存临时数据失败:', error);
+    }
+  };
+
+  const handleAppSecretChange = async (value: string) => {
+    setAppSecret(value);
+    try {
+      await chrome.storage.local.set({ tempAppSecret: value });
+    } catch (error) {
+      console.error('保存临时数据失败:', error);
+    }
+  };
 
   const handleSaveConfig = async () => {
     if (!appId.trim() || !appSecret.trim()) {
@@ -28,6 +72,9 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
         feishuAppSecret: appSecret.trim(),
       });
 
+      // 清除临时存储
+      await chrome.storage.local.remove(['tempAppId', 'tempAppSecret']);
+
       // 通知父组件配置已保存
       onConfigSaved();
     } catch (error) {
@@ -37,6 +84,18 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
       setIsSaving(false);
     }
   };
+
+  // 显示加载状态
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+          <p className="text-muted-foreground text-sm">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -59,27 +118,27 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
       {/* 配置表单 */}
       <div className="space-y-4">
         <div>
-          <label htmlFor="appId" className="mb-1 block text-sm font-medium">
+          <Label htmlFor="appId" className="mb-1 block">
             应用 ID (App ID)
-          </label>
+          </Label>
           <Input
             id="appId"
             type="text"
             value={appId}
-            onChange={e => setAppId(e.target.value)}
+            onChange={e => handleAppIdChange(e.target.value)}
             placeholder="请输入飞书应用 ID"
           />
         </div>
 
         <div>
-          <label htmlFor="appSecret" className="mb-1 block text-sm font-medium">
+          <Label htmlFor="appSecret" className="mb-1 block">
             应用密钥 (App Secret)
-          </label>
+          </Label>
           <Input
             id="appSecret"
             type="password"
             value={appSecret}
-            onChange={e => setAppSecret(e.target.value)}
+            onChange={e => handleAppSecretChange(e.target.value)}
             placeholder="请输入飞书应用密钥"
           />
         </div>
