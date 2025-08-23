@@ -1,7 +1,23 @@
 import ConfigPrompt from './ConfigPrompt';
 import { useStorage, FEISHU_CONFIG } from '@extension/shared';
 import { feishuStorage } from '@extension/storage';
-import { Button, Input, Textarea } from '@extension/ui';
+import {
+  Button,
+  Input,
+  Textarea,
+  Alert,
+  AlertDescription,
+  Card,
+  CardContent,
+  CardTitle,
+  Badge,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@extension/ui';
 import { useEffect, useState } from 'react';
 import type { FeishuWiki, SaveContent, SaveTarget } from '@extension/shared';
 import type React from 'react';
@@ -53,6 +69,7 @@ const SaveToFeishu: React.FC = () => {
 
       // 获取知识库列表
       const wikisResponse = await chrome.runtime.sendMessage({ action: 'feishu_get_wikis' });
+
       if (wikisResponse.success && wikisResponse.data) {
         setWikis(wikisResponse.data.items || []);
       }
@@ -185,20 +202,22 @@ const SaveToFeishu: React.FC = () => {
   // 渲染保存成功界面
   if (saveSuccess) {
     return (
-      <div className="flex min-h-[300px] min-w-[350px] flex-col items-center justify-center p-6">
-        <div className="mb-4 rounded-full bg-green-100 p-3 text-green-500">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-12 w-12"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h2 className="mb-2 text-xl font-bold">保存成功</h2>
-        <p className="text-muted-foreground mb-4">内容已成功保存到飞书</p>
-      </div>
+      <Card className="min-h-[300px] min-w-[350px]">
+        <CardContent className="flex flex-col items-center justify-center p-6">
+          <div className="mb-4 rounded-full bg-green-100 p-3 text-green-500">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 w-12"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <CardTitle className="mb-2 text-xl">保存成功</CardTitle>
+          <p className="text-muted-foreground mb-4">内容已成功保存到飞书</p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -215,16 +234,16 @@ const SaveToFeishu: React.FC = () => {
 
       {/* 错误提示 */}
       {error && (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 rounded-md border p-3">
-          {error}
-        </div>
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* 内容编辑 */}
       <div className="mb-4">
-        <label htmlFor="title" className="mb-1 block text-sm font-medium text-gray-700">
+        <Label htmlFor="title" className="mb-1 block">
           标题
-        </label>
+        </Label>
         <Input
           id="title"
           type="text"
@@ -234,16 +253,16 @@ const SaveToFeishu: React.FC = () => {
       </div>
 
       <div className="mb-4">
-        <label htmlFor="url" className="mb-1 block text-sm font-medium text-gray-700">
+        <Label htmlFor="url" className="mb-1 block">
           URL
-        </label>
+        </Label>
         <Input id="url" type="text" value={pageInfo.url} readOnly className="bg-muted" />
       </div>
 
       <div className="mb-4">
-        <label htmlFor="content" className="mb-1 block text-sm font-medium text-gray-700">
+        <Label htmlFor="content" className="mb-1 block">
           内容预览
-        </label>
+        </Label>
         <Textarea
           id="content"
           value={pageInfo.content}
@@ -254,7 +273,7 @@ const SaveToFeishu: React.FC = () => {
 
       {/* 保存选项 */}
       <div className="mb-4">
-        <span className="mb-2 block text-sm font-medium text-gray-700">保存到</span>
+        <Label className="mb-2 block">保存到</Label>
         <div className="mb-2 flex space-x-2">
           <Button
             variant={selectedTarget === 'doc' ? 'default' : 'outline'}
@@ -279,21 +298,21 @@ const SaveToFeishu: React.FC = () => {
         {/* 知识库选择 */}
         {selectedTarget === 'wiki' && (
           <div className="mb-4">
-            <label htmlFor="wiki-select" className="mb-1 block text-sm font-medium text-gray-700">
+            <Label htmlFor="wiki-select" className="mb-1 block">
               选择知识库
-            </label>
-            <select
-              id="wiki-select"
-              value={selectedWikiId}
-              onChange={e => setSelectedWikiId(e.target.value)}
-              className="border-input bg-background ring-offset-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-              <option value="">请选择知识库</option>
-              {wikis.map(wiki => (
-                <option key={wiki.id} value={wiki.id}>
-                  {wiki.name}
-                </option>
-              ))}
-            </select>
+            </Label>
+            <Select value={selectedWikiId} onValueChange={setSelectedWikiId}>
+              <SelectTrigger>
+                <SelectValue placeholder="请选择知识库" />
+              </SelectTrigger>
+              <SelectContent>
+                {wikis.map(wiki => (
+                  <SelectItem key={wiki.id} value={wiki.id}>
+                    {wiki.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -301,9 +320,9 @@ const SaveToFeishu: React.FC = () => {
       {/* 标签 */}
       {savePreferences.includeTags && (
         <div className="mb-4">
-          <label htmlFor="tag-input" className="mb-1 block text-sm font-medium text-gray-700">
+          <Label htmlFor="tag-input" className="mb-1 block">
             标签
-          </label>
+          </Label>
           <div className="mb-2 flex">
             <Input
               id="tag-input"
@@ -312,7 +331,7 @@ const SaveToFeishu: React.FC = () => {
               onChange={e => setCurrentTag(e.target.value)}
               placeholder="添加标签"
               className="flex-1 rounded-r-none"
-              onKeyPress={e => {
+              onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   handleAddTag();
@@ -326,9 +345,7 @@ const SaveToFeishu: React.FC = () => {
 
           <div className="flex flex-wrap gap-2">
             {tags.map(tag => (
-              <div
-                key={tag}
-                className="bg-secondary text-secondary-foreground flex items-center rounded-full px-3 py-1 text-sm">
+              <Badge key={tag} variant="secondary" className="flex items-center">
                 {tag}
                 <Button
                   variant="ghost"
@@ -338,7 +355,7 @@ const SaveToFeishu: React.FC = () => {
                   aria-label={`删除标签 ${tag}`}>
                   &times;
                 </Button>
-              </div>
+              </Badge>
             ))}
           </div>
         </div>
