@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { ExternalToast, toast } from 'sonner';
 import {
   MessageType,
   ChromeMessage,
@@ -20,22 +20,38 @@ export const useSonnerToast = () => {
     ) => {
       if (message.action === MessageType.SHOW_TOAST) {
         const toastMessage = message as ShowToastMessage;
+        console.log('🚀 ~ handleMessage ~ toastMessage:', toastMessage);
         const { type = 'info', message: content, data } = toastMessage;
+        const { description, actionText, actionUrl } = data || {};
+
+        const toastOptions: ExternalToast = {
+          description,
+          action: {
+            label: actionText,
+            onClick: () => {
+              if (actionUrl) {
+                chrome.tabs.create({
+                  url: actionUrl,
+                });
+              }
+            },
+          },
+        };
 
         // 根据消息类型调用对应的sonner方法
         switch (type) {
           case 'success':
-            toast.success(content, data);
+            toast.success(content, toastOptions);
             break;
           case 'error':
-            toast.error(content, data);
+            toast.error(content, toastOptions);
             break;
           case 'warning':
-            toast.warning(content, data);
+            toast.warning(content, toastOptions);
             break;
           case 'info':
           default:
-            toast.info(content, data);
+            toast.info(content, toastOptions);
             break;
         }
 

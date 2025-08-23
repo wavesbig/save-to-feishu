@@ -282,7 +282,7 @@ class FeishuRequest {
 
       // 从msg字段中解析权限申请链接
       const msgLinkMatch = data.msg?.match(/https:\/\/[^\s]+/);
-      const msgLink = msgLinkMatch ? msgLinkMatch[0] : null;
+      const msgLink = msgLinkMatch ? msgLinkMatch[0] : undefined;
 
       // 提取所需权限信息
       const permissionViolations = data.error?.permission_violations || [];
@@ -306,15 +306,12 @@ class FeishuRequest {
       // 发送详细的权限错误消息到UI层
       this.sendErrorMessage('应用权限不足', {
         description: errorMessage,
-        action: {
-          label: '去申请',
-          onClick: () => {
-            console.log('🚀 ~ FeishuRequest ~ handlePermissionError ~ helpUrl:', helpUrl);
-            if (helpUrl) {
-              chrome.tabs.create({ url: helpUrl });
+        ...(helpUrl
+          ? {
+              actionText: '去申请',
+              actionUrl: helpUrl,
             }
-          },
-        },
+          : {}),
       });
     } catch (error) {
       console.error('处理权限错误时出现异常:', error);

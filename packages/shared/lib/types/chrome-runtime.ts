@@ -2,11 +2,6 @@
 /**
  * Chrome Runtime 消息传递类型定义
  */
-interface Action {
-  label: React.ReactNode;
-  onClick: (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
-  actionButtonStyle?: React.CSSProperties;
-}
 
 // 消息类型枚举
 export enum MessageType {
@@ -102,8 +97,9 @@ export interface ShowToastMessage extends BaseMessage {
   type?: 'success' | 'error' | 'warning' | 'info';
   data?: {
     description?: (() => React.ReactNode) | React.ReactNode;
-    action?: Action | React.ReactNode;
-    cancel?: Action | React.ReactNode;
+    actionText?: React.ReactNode;
+    actionUrl?: string;
+    cancelText?: React.ReactNode;
   };
 }
 
