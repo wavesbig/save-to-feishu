@@ -4,7 +4,9 @@
  * 基于axios封装飞书开放平台API请求
  */
 import { FEISHU_CONFIG } from '../config/feishu-config.js';
+import { MessageType } from '../types/chrome-runtime.js';
 import axios from 'axios';
+import type { ShowToastMessage } from '../types/chrome-runtime.js';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // 令牌管理
@@ -54,6 +56,15 @@ class FeishuRequest {
         // 检查飞书API响应状态
         if (data.code !== 0) {
           console.error('飞书API错误:', data.msg, data.code);
+
+          // 针对权限不足错误(99991672)进行特殊处理
+          if (data.code === 99991672) {
+            this.handlePermissionError(data);
+          } else {
+            // 发送普通错误消息到UI层
+            this.sendErrorMessage(data.msg || '飞书API请求失败');
+          }
+
           return Promise.reject(new Error(data.msg || '飞书API请求失败'));
         }
 
@@ -73,6 +84,16 @@ class FeishuRequest {
             originalRequest.headers.Authorization = `Bearer ${this.tokenManager.tenantAccessToken}`;
             return this.axios.request(originalRequest);
           }
+        }
+
+        // 检查是否为权限不足错误(99991672)
+        if (error.response?.data?.code === 99991672) {
+          console.error('飞书API权限错误:', error.response.data);
+          this.handlePermissionError(error.response.data);
+        } else {
+          // 发送网络错误消息到UI层
+          const errorMessage = error.response?.data?.msg || error.message || '网络请求失败';
+          this.sendErrorMessage(errorMessage);
         }
 
         return Promise.reject(error);
@@ -251,6 +272,76 @@ class FeishuRequest {
   public async refreshTokens(): Promise<FeishuApiResponse> {
     return this.getAccessTokens();
   }
+
+  /**
+   * 处理权限不足错误(99991672)
+   */
+  private handlePermissionError(data: FeishuApiResponse): void {
+    try {
+      console.log(data.msg);
+
+      // 从msg字段中解析权限申请链接
+      const msgLinkMatch = data.msg?.match(/https:\/\/[^\s]+/);
+      const msgLink = msgLinkMatch ? msgLinkMatch[0] : null;
+
+      // 提取所需权限信息
+      const permissionViolations = data.error?.permission_violations || [];
+      const requiredScopes = permissionViolations
+        .filter(violation => violation.type === 'action_scope_required')
+        .map(violation => violation.subject)
+        .join(', ');
+
+      // 构建友好的错误提示
+      let errorMessage = '';
+
+      if (requiredScopes) {
+        errorMessage += `所需权限：${requiredScopes}，`;
+      }
+
+      errorMessage += '请联系管理员为应用申请相应权限。';
+
+      // 优先使用msg中的链接，其次使用error.helps中的链接
+      const helpUrl = data.error?.helps?.[0]?.url || msgLink;
+
+      // 发送详细的权限错误消息到UI层
+      this.sendErrorMessage('应用权限不足', {
+        description: errorMessage,
+        action: {
+          label: '去申请',
+          onClick: () => {
+            console.log('🚀 ~ FeishuRequest ~ handlePermissionError ~ helpUrl:', helpUrl);
+            if (helpUrl) {
+              chrome.tabs.create({ url: helpUrl });
+            }
+          },
+        },
+      });
+    } catch (error) {
+      console.error('处理权限错误时出现异常:', error);
+      // 降级处理：发送基本错误消息
+      this.sendErrorMessage(data.msg || '应用权限不足，请联系管理员申请相应权限');
+    }
+  }
+
+  /**
+   * 发送错误消息到UI层
+   */
+  private sendErrorMessage(message: string, data?: ShowToastMessage['data']): void {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        const toastMessage: ShowToastMessage = {
+          action: MessageType.SHOW_TOAST,
+          type: 'error',
+          message: message,
+          data,
+        };
+
+        chrome.runtime.sendMessage(toastMessage);
+      }
+    } catch (error) {
+      console.warn('发送错误消息失败:', error);
+    }
+  }
 }
 
 // 创建单例实例
@@ -260,12 +351,57 @@ const feishuRequest = new FeishuRequest();
 export { feishuRequest, FeishuRequest };
 export default feishuRequest;
 
-// 飞书API响应类型
+/**
+ * 飞书API响应类型定义
+ * 基于飞书开放平台官方文档规范
+ */
 export interface FeishuApiResponse<T = any> {
+  /** 错误码，0表示成功，非0表示失败 */
   code: number;
+  /** 错误信息描述 */
   msg: string;
+  /** API调用结果数据，在操作类API中可能不存在 */
   data?: T;
-  success: boolean;
+  /** 请求是否成功，部分API响应中包含此字段 */
+  success?: boolean;
+  /** 租户访问令牌，在获取访问令牌接口中返回 */
   tenant_access_token?: string;
+  /** 令牌过期时间（秒），在获取访问令牌接口中返回 */
   expire?: number;
+  /** 详细错误信息，包含错误排查和权限相关信息 */
+  error?: {
+    /** 错误详细描述信息 */
+    message?: string;
+    /** 字段验证错误列表 */
+    field_violations?: Array<{
+      /** 错误字段名 */
+      field: string;
+      /** 错误字段值 */
+      value: string;
+      /** 错误描述 */
+      description: string;
+    }>;
+    /** 权限违规信息列表 */
+    permission_violations?: Array<{
+      /** 所需权限范围 */
+      scope?: string;
+      /** 权限申请链接 */
+      url?: string;
+      /** 权限违规类型 */
+      type?: string;
+      /** 权限主体 */
+      subject?: string;
+    }>;
+    /** 帮助信息列表 */
+    helps?: Array<{
+      /** 帮助链接地址 */
+      url: string;
+      /** 帮助信息描述 */
+      description: string;
+    }>;
+    /** 日志ID，用于问题排查 */
+    logid?: string;
+    /** 故障排查建议链接 */
+    troubleshooter?: string;
+  };
 }
