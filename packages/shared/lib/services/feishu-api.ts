@@ -11,6 +11,7 @@ import type {
   // SaveContent,
   // SaveHistory,
   // SaveTarget,
+  // 创建文档的请求数据类型
   CreateDocumentData,
   CreateWikiDocumentData,
   CreateNoteData,
