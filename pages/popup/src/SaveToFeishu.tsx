@@ -230,146 +230,149 @@ const SaveToFeishu: React.FC = () => {
 
   // 渲染主界面
   return (
-    <div className="p-4">
-      {/* 头部 */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <img src={chrome.runtime.getURL('icon-34.png')} alt="Save to Feishu" className="mr-2 h-6 w-6" />
-          <h1 className="text-lg font-bold">保存到飞书111</h1>
-        </div>
-      </div>
-
-      {/* 错误提示 */}
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* 内容编辑 */}
-      <div className="mb-4">
-        <Label htmlFor="title" className="mb-1 block">
-          标题
-        </Label>
-        <Input
-          id="title"
-          type="text"
-          value={pageInfo.title}
-          onChange={e => setPageInfo({ ...pageInfo, title: e.target.value })}
-        />
-      </div>
-
-      <div className="mb-4">
-        <Label htmlFor="url" className="mb-1 block">
-          URL
-        </Label>
-        <Input id="url" type="text" value={pageInfo.url} readOnly className="bg-muted" />
-      </div>
-
-      <div className="mb-4">
-        <Label htmlFor="content" className="mb-1 block">
-          内容预览
-        </Label>
-        <Textarea
-          id="content"
-          value={pageInfo.content}
-          onChange={e => setPageInfo({ ...pageInfo, content: e.target.value })}
-          className="h-24"
-        />
-      </div>
-
-      {/* 保存选项 */}
-      <div className="mb-4">
-        <Label className="mb-2 block">保存到</Label>
-        <div className="mb-2 flex space-x-2">
-          <Button
-            variant={selectedTarget === 'doc' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedTarget('doc')}>
-            文档
-          </Button>
-          <Button
-            variant={selectedTarget === 'wiki' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedTarget('wiki')}>
-            知识库
-          </Button>
-          <Button
-            variant={selectedTarget === 'note' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setSelectedTarget('note')}>
-            便签
-          </Button>
+    <div className="flex h-[500px] flex-col">
+      {/* 可滚动的内容区域 */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {/* 头部 */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <img src={chrome.runtime.getURL('icon-34.png')} alt="Save to Feishu" className="mr-2 h-6 w-6" />
+            <h1 className="text-lg font-bold">保存到飞书</h1>
+          </div>
         </div>
 
-        {/* 知识库选择 */}
-        {selectedTarget === 'wiki' && (
+        {/* 错误提示 */}
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* 内容编辑 */}
+        <div className="mb-4">
+          <Label htmlFor="title" className="mb-1 block">
+            标题
+          </Label>
+          <Input
+            id="title"
+            type="text"
+            value={pageInfo.title}
+            onChange={e => setPageInfo({ ...pageInfo, title: e.target.value })}
+          />
+        </div>
+
+        <div className="mb-4">
+          <Label htmlFor="url" className="mb-1 block">
+            URL
+          </Label>
+          <Input id="url" type="text" value={pageInfo.url} readOnly className="bg-muted" />
+        </div>
+
+        <div className="mb-4">
+          <Label htmlFor="content" className="mb-1 block">
+            内容预览
+          </Label>
+          <Textarea
+            id="content"
+            value={pageInfo.content}
+            onChange={e => setPageInfo({ ...pageInfo, content: e.target.value })}
+            className="h-24"
+          />
+        </div>
+
+        {/* 保存选项 */}
+        <div className="mb-4">
+          <Label className="mb-2 block">保存到</Label>
+          <div className="mb-2 flex space-x-2">
+            <Button
+              variant={selectedTarget === 'doc' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedTarget('doc')}>
+              文档
+            </Button>
+            <Button
+              variant={selectedTarget === 'wiki' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedTarget('wiki')}>
+              知识库
+            </Button>
+            <Button
+              variant={selectedTarget === 'note' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedTarget('note')}>
+              便签
+            </Button>
+          </div>
+
+          {/* 知识库选择 */}
+          {selectedTarget === 'wiki' && (
+            <div className="mb-4">
+              <Label htmlFor="wiki-select" className="mb-1 block">
+                选择知识库
+              </Label>
+              <Select value={selectedWikiId} onValueChange={setSelectedWikiId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择知识库" />
+                </SelectTrigger>
+                <SelectContent>
+                  {wikis.map(wiki => (
+                    <SelectItem key={wiki.id} value={wiki.id}>
+                      {wiki.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {/* 标签 */}
+        {savePreferences.includeTags && (
           <div className="mb-4">
-            <Label htmlFor="wiki-select" className="mb-1 block">
-              选择知识库
+            <Label htmlFor="tag-input" className="mb-1 block">
+              标签
             </Label>
-            <Select value={selectedWikiId} onValueChange={setSelectedWikiId}>
-              <SelectTrigger>
-                <SelectValue placeholder="请选择知识库" />
-              </SelectTrigger>
-              <SelectContent>
-                {wikis.map(wiki => (
-                  <SelectItem key={wiki.id} value={wiki.id}>
-                    {wiki.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="mb-2 flex">
+              <Input
+                id="tag-input"
+                type="text"
+                value={currentTag}
+                onChange={e => setCurrentTag(e.target.value)}
+                placeholder="添加标签"
+                className="flex-1 rounded-r-none"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddTag();
+                  }
+                }}
+              />
+              <Button variant="secondary" onClick={handleAddTag} className="rounded-l-none">
+                添加
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {tags.map(tag => (
+                <Badge key={tag} variant="secondary" className="flex items-center">
+                  {tag}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="text-muted-foreground hover:text-foreground ml-1 h-auto p-0"
+                    aria-label={`删除标签 ${tag}`}>
+                    &times;
+                  </Button>
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* 标签 */}
-      {savePreferences.includeTags && (
-        <div className="mb-4">
-          <Label htmlFor="tag-input" className="mb-1 block">
-            标签
-          </Label>
-          <div className="mb-2 flex">
-            <Input
-              id="tag-input"
-              type="text"
-              value={currentTag}
-              onChange={e => setCurrentTag(e.target.value)}
-              placeholder="添加标签"
-              className="flex-1 rounded-r-none"
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTag();
-                }
-              }}
-            />
-            <Button variant="secondary" onClick={handleAddTag} className="rounded-l-none">
-              添加
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {tags.map(tag => (
-              <Badge key={tag} variant="secondary" className="flex items-center">
-                {tag}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemoveTag(tag)}
-                  className="text-muted-foreground hover:text-foreground ml-1 h-auto p-0"
-                  aria-label={`删除标签 ${tag}`}>
-                  &times;
-                </Button>
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 保存按钮 */}
-      <div className="mt-6">
+      {/* 固定在底部的保存按钮 */}
+      <div className="bg-background border-t p-4">
         <Button
           className="w-full"
           onClick={handleSave}
