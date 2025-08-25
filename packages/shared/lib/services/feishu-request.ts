@@ -4,9 +4,9 @@
  * 基于axios封装飞书开放平台API请求
  */
 import { FEISHU_CONFIG } from '../config/feishu-config.js';
-import { MessageType } from '../types/chrome-runtime.js';
+import { MessageType } from '../types/message.js';
 import axios from 'axios';
-import type { ShowToastMessage } from '../types/chrome-runtime.js';
+import type { ShowToastMessage } from '../types/message.js';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // 令牌管理

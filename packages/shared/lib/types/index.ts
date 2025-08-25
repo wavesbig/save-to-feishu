@@ -6,4 +6,4 @@
 export type * from './feishu.js';
 
 // Chrome Runtime 消息传递类型
-export * from './chrome-runtime.js';
+export * from './message.js';
