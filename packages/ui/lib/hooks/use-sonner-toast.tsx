@@ -1,11 +1,7 @@
 import { useEffect } from 'react';
 import { ExternalToast, toast } from 'sonner';
-import {
-  MessageType,
-  ChromeMessage,
-  ShowToastResponse,
-  ShowToastMessage,
-} from '@extension/shared/lib/types/chrome-runtime';
+import { onUIMessage } from '@extension/shared/lib/message/message';
+import { MessageType } from '@extension/shared';
 
 /**
  * 基于Sonner的Toast消息监听Hook
@@ -13,73 +9,42 @@ import {
  */
 export const useSonnerToast = () => {
   useEffect(() => {
-    const handleMessage = (
-      message: ChromeMessage,
-      sender: chrome.runtime.MessageSender,
-      sendResponse: (response?: ShowToastResponse) => void,
-    ) => {
-      if (message.action === MessageType.SHOW_TOAST) {
-        const toastMessage = message as ShowToastMessage;
-        console.log('🚀 ~ handleMessage ~ toastMessage:', toastMessage);
-        const { type = 'info', message: content, data } = toastMessage;
-        const { description, actionText, actionUrl } = data || {};
+    // 监听后台推送
+    onUIMessage(MessageType.SHOW_TOAST, payload => {
+      console.log('🚀 ~ onUIMessage ~ payload:', payload);
+      const { type = 'info', message: content, data } = payload;
+      const { description, actionText, actionUrl } = data || {};
 
-        const toastOptions: ExternalToast = {
-          description,
-          action: {
-            label: actionText,
-            onClick: () => {
-              if (actionUrl) {
-                chrome.tabs.create({
-                  url: actionUrl,
-                });
-              }
-            },
+      const toastOptions: ExternalToast = {
+        description,
+        action: {
+          label: actionText,
+          onClick: () => {
+            if (actionUrl) {
+              chrome.tabs.create({
+                url: actionUrl,
+              });
+            }
           },
-        };
-
-        // 根据消息类型调用对应的sonner方法
-        switch (type) {
-          case 'success':
-            toast.success(content, toastOptions);
-            break;
-          case 'error':
-            toast.error(content, toastOptions);
-            break;
-          case 'warning':
-            toast.warning(content, toastOptions);
-            break;
-          case 'info':
-          default:
-            toast.info(content, toastOptions);
-            break;
-        }
-
-        sendResponse({ success: true });
-      }
-    };
-
-    // 检查是否在Chrome扩展环境中
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener(handleMessage);
-
-      // 清理函数
-      return () => {
-        if (chrome.runtime && chrome.runtime.onMessage) {
-          chrome.runtime.onMessage.removeListener(handleMessage);
-        }
+        },
       };
-    }
-    return undefined;
-  }, []);
-};
 
-/**
- * 手动显示toast的工具函数
- */
-export const showToast = {
-  success: (message: string, duration?: number) => toast.success(message, { duration }),
-  error: (message: string, duration?: number) => toast.error(message, { duration }),
-  warning: (message: string, duration?: number) => toast.warning(message, { duration }),
-  info: (message: string, duration?: number) => toast.info(message, { duration }),
+      // 根据消息类型调用对应的sonner方法
+      switch (type) {
+        case 'success':
+          toast.success(content, toastOptions);
+          break;
+        case 'error':
+          toast.error(content, toastOptions);
+          break;
+        case 'warning':
+          toast.warning(content, toastOptions);
+          break;
+        case 'info':
+        default:
+          toast.info(content, toastOptions);
+          break;
+      }
+    });
+  }, []);
 };
