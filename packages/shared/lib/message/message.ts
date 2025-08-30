@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { MessageType, MessagePayloadMap, MessageResponseMap } from '../types/message.js';
+import type {
+  MessageType,
+  MessagePayloadMap,
+  MessageResponseMap,
+  RequestMessage,
+  EventMessage,
+} from '../types/message.js';
 
 //
 // ====== UI -> Background ======
@@ -13,20 +19,24 @@ const sendRequest = async <K extends MessageType>(
 ): Promise<MessageResponseMap[K]> => {
   const msg = { kind: 'REQUEST' as const, type, payload };
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(msg, res => {
-      if (chrome.runtime.lastError) {
-        reject(chrome.runtime.lastError);
-      } else {
-        resolve(res);
-      }
-    });
+    if (chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage(msg, res => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve(res);
+        }
+      });
+    }
   });
 };
 
 // 发送 Event（单向通知，无返回值）
 const sendEvent = <K extends MessageType>(type: K, payload: MessagePayloadMap[K]): void => {
   const msg = { kind: 'EVENT' as const, type, payload };
-  chrome.runtime.sendMessage(msg);
+  if (chrome.runtime?.sendMessage) {
+    chrome.runtime.sendMessage(msg);
+  }
 };
 
 //
@@ -52,24 +62,28 @@ const registerEventHandler = <K extends MessageType>(type: K, handler: EventHand
   eventHandlers[type] = handler;
 };
 
-// Background 挂一次全局监听
-if (chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse): boolean | void => {
-    if (msg.kind === 'REQUEST') {
-      const handler = requestHandlers[msg.type as MessageType];
-      if (!handler) return;
-      Promise.resolve(handler(msg.payload))
-        .then(sendResponse)
-        .catch(err => sendResponse({ error: err.message }));
-      return true;
-    }
+// 初始化 Background 侧的消息监听
+const setupBackgroundMessageRouter = () => {
+  if (typeof chrome !== 'undefined' && !chrome.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener(
+      (msg: RequestMessage<MessageType> | EventMessage<MessageType>, _sender, sendResponse): boolean | void => {
+        if (msg.kind === 'REQUEST') {
+          const handler = requestHandlers[msg.type];
+          if (!handler) return;
+          Promise.resolve(handler(msg.payload))
+            .then(sendResponse)
+            .catch(err => sendResponse({ error: err.message }));
+          return true;
+        }
 
-    if (msg.kind === 'EVENT') {
-      const handler = eventHandlers[msg.type as MessageType];
-      if (handler) handler(msg.payload);
-    }
-  });
-}
+        if (msg.kind === 'EVENT') {
+          const handler = eventHandlers[msg.type];
+          if (handler) handler(msg.payload);
+        }
+      },
+    );
+  }
+};
 
 //
 // ====== Background -> UI ======
@@ -83,19 +97,32 @@ const onUIMessage = <K extends MessageType>(type: K, handler: EventHandler<K>) =
   uiHandlers[type] = handler;
 };
 
-// UI 挂一次监听
-if (chrome.runtime?.onMessage) {
-  chrome.runtime.onMessage.addListener(msg => {
-    if (msg.kind === 'EVENT') {
-      const handler = uiHandlers[msg.type as MessageType];
-      if (handler) handler(msg.payload);
-    }
-  });
-}
+// 初始化 UI 侧的消息监听
+const setupUIEventRouter = () => {
+  if (chrome?.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener((msg: EventMessage<MessageType>) => {
+      if (msg.kind === 'EVENT') {
+        const handler = uiHandlers[msg.type];
+        if (handler) handler(msg.payload);
+      }
+    });
+  }
+};
 
 // Background 主动发消息到 UI
 const notifyUI = <K extends MessageType>(type: K, payload: MessagePayloadMap[K]) => {
-  chrome.runtime.sendMessage({ kind: 'EVENT', type, payload });
+  if (chrome?.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ kind: 'EVENT', type, payload });
+  }
 };
 
-export { sendRequest, sendEvent, registerRequestHandler, registerEventHandler, onUIMessage, notifyUI };
+export {
+  sendRequest,
+  sendEvent,
+  registerRequestHandler,
+  registerEventHandler,
+  setupBackgroundMessageRouter,
+  onUIMessage,
+  notifyUI,
+  setupUIEventRouter,
+};

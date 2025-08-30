@@ -1,6 +1,7 @@
+import { setupBackgroundMessageRouter } from '@extension/shared/lib/message/message';
 import 'webextension-polyfill';
 // import { getWikis, MessageType, createDocument, createWikiDocument, createNote } from '@extension/shared';
-import { startMessageListener } from '@extension/shared/lib/message/messageHandler';
+
 // import { exampleThemeStorage } from '@extension/storage';
 // import type {
 //   // ChromeMessage,
@@ -17,8 +18,6 @@ import { startMessageListener } from '@extension/shared/lib/message/messageHandl
 // registerHandler('updateUser', async (payload) => {
 //   return await apiUser.updateUserInfo(payload);
 // });
-
-startMessageListener();
 
 /**
  * 保存内容到飞书
@@ -167,3 +166,5 @@ startMessageListener();
 
 //   return false;
 // });
+
+setupBackgroundMessageRouter();
