@@ -7,7 +7,7 @@ import type {
   // FeishuDocument,
   // FeishuNote,
   // FeishuUser,
-  // FeishuWiki,
+  FeishuWiki,
   // SaveContent,
   // SaveHistory,
   // SaveTarget,
@@ -25,7 +25,7 @@ export const getDocuments = async () => await feishuRequest.get('/drive/v1/recen
 /**
  * 获取用户的知识库列表
  */
-export const getWikis = async () => await feishuRequest.get('/wiki/v2/spaces');
+export const getWikis = async () => await feishuRequest.get<FeishuWiki[]>('/wiki/v2/spaces');
 
 /**
  * 获取用户的便签列表

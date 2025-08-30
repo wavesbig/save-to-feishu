@@ -1,97 +1,13 @@
-import { setupBackgroundMessageRouter } from '@extension/shared/lib/message/message';
+import { MessageType, getWikis, createDocument } from '@extension/shared';
+import { setupBackgroundMessageRouter, registerRequestHandler } from '@extension/shared/lib/message/message';
 import 'webextension-polyfill';
 // import { getWikis, MessageType, createDocument, createWikiDocument, createNote } from '@extension/shared';
-
 // import { exampleThemeStorage } from '@extension/storage';
-// import type {
-//   // ChromeMessage,
-//   MessageResponse,
-//   SaveContent,
-//   CreateDocumentData,
-//   CreateWikiDocumentData,
-//   FeishuApiResponse,
-//   CreateNoteData,
-// } from '@extension/shared';
-
-// registerHandler(MessageType.GET_WIKIS, async () => await getWikis());
+import type { SaveContent, CreateDocumentData, CreateWikiDocumentData, CreateNoteData } from '@extension/shared';
 
 // registerHandler('updateUser', async (payload) => {
 //   return await apiUser.updateUserInfo(payload);
 // });
-
-/**
- * 保存内容到飞书
- */
-// const saveContent = async (data: SaveContent) => {
-//   const { title, url, content, target, targetId } = data;
-//   let result;
-
-//   if (target === 'doc') {
-//     // 构建文档数据结构
-//     const docData: CreateDocumentData = {
-//       title,
-//       content: {
-//         blocks: [
-//           {
-//             block_type: 'text',
-//             text: {
-//               elements: [
-//                 {
-//                   text_run: {
-//                     content: url,
-//                     text_element_style: {
-//                       link: {
-//                         url: url,
-//                       },
-//                     },
-//                   },
-//                 },
-//               ],
-//             },
-//           },
-//           {
-//             block_type: 'text',
-//             text: {
-//               elements: [
-//                 {
-//                   text_run: {
-//                     content: content,
-//                   },
-//                 },
-//               ],
-//             },
-//           },
-//         ],
-//       },
-//     };
-//     result = await createDocument(docData);
-//   } else if (target === 'wiki') {
-//     if (targetId) {
-//       // 构建知识库文档数据结构
-//       const wikiData: CreateWikiDocumentData = {
-//         title,
-//         obj_type: 'doc',
-//         content: `<p><a href="${url}">${url}</a></p><p>${content}</p>`,
-//       };
-//       result = await createWikiDocument(targetId, wikiData);
-//     } else {
-//       throw new Error('未指定知识库ID');
-//     }
-//   } else if (target === 'note') {
-//     // 构建便签数据结构
-//     const noteData: CreateNoteData = {
-//       title,
-//       body: {
-//         content: `${url}\n\n${content}`,
-//       },
-//     };
-//     result = await createNote(noteData);
-//   } else {
-//     throw new Error('不支持的目标类型');
-//   }
-
-//   return result;
-// };
 
 // exampleThemeStorage.get().then(theme => {
 //   console.log('theme', theme);
@@ -166,5 +82,83 @@ import 'webextension-polyfill';
 
 //   return false;
 // });
+
+/**
+ * 保存内容到飞书
+ */
+const saveContent = async (data: SaveContent) => {
+  const { title, url, content, target, targetId } = data;
+  let result;
+
+  if (target === 'doc') {
+    // 构建文档数据结构
+    const docData: CreateDocumentData = {
+      title,
+      content: {
+        blocks: [
+          {
+            block_type: 'text',
+            text: {
+              elements: [
+                {
+                  text_run: {
+                    content: url,
+                    text_element_style: {
+                      link: {
+                        url: url,
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          {
+            block_type: 'text',
+            text: {
+              elements: [
+                {
+                  text_run: {
+                    content: content,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    result = await createDocument(docData);
+  } else if (target === 'wiki') {
+    if (targetId) {
+      // 构建知识库文档数据结构
+      const wikiData: CreateWikiDocumentData = {
+        title,
+        obj_type: 'doc',
+        content: `<p><a href="${url}">${url}</a></p><p>${content}</p>`,
+      };
+      result = await createWikiDocument(targetId, wikiData);
+    } else {
+      throw new Error('未指定知识库ID');
+    }
+  } else if (target === 'note') {
+    // 构建便签数据结构
+    const noteData: CreateNoteData = {
+      title,
+      body: {
+        content: `${url}\n\n${content}`,
+      },
+    };
+    result = await createNote(noteData);
+  } else {
+    throw new Error('不支持的目标类型');
+  }
+
+  return result;
+};
+
+registerRequestHandler(MessageType.GET_WIKIS, async () => await getWikis());
+
+registerRequestHandler(MessageType.SAVE_TO_FEISHU, saveContent);
 
 setupBackgroundMessageRouter();

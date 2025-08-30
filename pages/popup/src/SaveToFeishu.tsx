@@ -1,42 +1,24 @@
 import ConfigPrompt from './ConfigPrompt';
 import { useStorage, FEISHU_CONFIG, MessageType } from '@extension/shared';
+import { sendRequest } from '@extension/shared/lib/message/message';
 import { feishuStorage } from '@extension/storage';
-import {
-  Button,
-  Input,
-  Textarea,
-  Alert,
-  AlertDescription,
-  Card,
-  CardContent,
-  CardTitle,
-  Badge,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@extension/ui';
+import { Button, Input, Alert, AlertDescription, Card, CardContent, CardTitle } from '@extension/ui';
 import { useEffect, useState } from 'react';
-import type { FeishuWiki, SaveContent, SaveTarget, MessageResponse } from '@extension/shared';
+import type { FeishuWiki, SaveContent } from '@extension/shared';
 import type React from 'react';
 
 const SaveToFeishu: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
-  const [pageInfo, setPageInfo] = useState<{ title: string; url: string; content: string }>({
+  const [pageInfo, setPageInfo] = useState<{ title: string; url: string }>({
     title: '',
     url: '',
-    content: '',
   });
-  const [wikis, setWikis] = useState<FeishuWiki[]>([]);
-  const [selectedTarget, setSelectedTarget] = useState<SaveTarget>('doc');
+  const [wikis] = useState<FeishuWiki[]>([]);
   const [selectedWikiId, setSelectedWikiId] = useState<string>('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [currentTag, setCurrentTag] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [, setShowAddForm] = useState(false);
 
   // 获取保存偏好设置
   const { savePreferences } = useStorage(feishuStorage);
@@ -69,12 +51,11 @@ const SaveToFeishu: React.FC = () => {
 
       // 获取知识库列表
       try {
-        const wikisResponse: MessageResponse = await chrome.runtime.sendMessage({
-          action: MessageType.GET_WIKIS,
-          timestamp: Date.now(),
-        });
+        const wikisResponse = await sendRequest(MessageType.GET_WIKIS);
+        console.log('🚀 ~ init ~ wikisResponse:', wikisResponse);
+
         if (wikisResponse.success && wikisResponse.data && wikisResponse.data.items) {
-          setWikis(wikisResponse.data.items);
+          // setWikis(wikisResponse.data.items);
         }
       } catch (error) {
         console.error('获取知识库列表失败:', error);
@@ -86,57 +67,14 @@ const SaveToFeishu: React.FC = () => {
         setPageInfo({
           title: tab.title || '',
           url: tab.url || '',
-          content: '',
         });
-
-        // 通过content script获取页面内容
-        if (tab.id) {
-          try {
-            const response = await chrome.tabs.sendMessage(tab.id, { action: 'get_page_content' });
-            console.log('🚀 ~ init ~ response:', response);
-            if (response && response.success && response.data) {
-              setPageInfo({
-                title: response.data.title || tab.title || '',
-                url: response.data.url || tab.url || '',
-                content: response.data.content || '',
-              });
-            }
-          } catch (error) {
-            console.error('获取页面内容失败:', error);
-            // 如果content script获取失败，使用fallback方法
-            try {
-              const [result] = await chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: () => {
-                  const getPageContent = () => {
-                    const article = document.querySelector('article');
-                    if (article) return article.innerText.substring(0, 1000);
-                    const main = document.querySelector('main');
-                    if (main) return main.innerText.substring(0, 1000);
-                    return document.body.innerText.substring(0, 1000);
-                  };
-                  return getPageContent();
-                },
-              });
-              if (result && result.result) {
-                setPageInfo(prev => ({
-                  ...prev,
-                  content: result.result || '',
-                }));
-              }
-            } catch (fallbackError) {
-              console.error('Fallback获取页面内容失败:', fallbackError);
-            }
-          }
-        }
       }
 
-      // 设置默认目标
-      if (savePreferences) {
-        setSelectedTarget(savePreferences.defaultTarget);
-        if (savePreferences.defaultWikiId) {
-          setSelectedWikiId(savePreferences.defaultWikiId);
-        }
+      // 设置默认知识库
+      if (savePreferences && savePreferences.defaultWikiId) {
+        setSelectedWikiId(savePreferences.defaultWikiId);
+      } else if (wikis.length > 0) {
+        setSelectedWikiId(wikis[0].id);
       }
     } catch (error) {
       console.error('初始化失败:', error);
@@ -144,21 +82,18 @@ const SaveToFeishu: React.FC = () => {
     }
   };
 
-  // 处理添加标签
-  const handleAddTag = () => {
-    if (currentTag && !tags.includes(currentTag)) {
-      setTags([...tags, currentTag]);
-      setCurrentTag('');
+  // 处理选择知识库
+  const handleSelectWiki = (wikiId: string) => {
+    setSelectedWikiId(wikiId);
+  };
+
+  // 处理保存到知识库
+  const handleSaveToWiki = async () => {
+    if (!selectedWikiId) {
+      setError('请选择知识库');
+      return;
     }
-  };
 
-  // 处理删除标签
-  const handleRemoveTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag));
-  };
-
-  // 处理保存内容
-  const handleSave = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
     setError(null);
@@ -167,32 +102,23 @@ const SaveToFeishu: React.FC = () => {
       const content: SaveContent = {
         title: pageInfo.title,
         url: pageInfo.url,
-        content: pageInfo.content,
-        target: selectedTarget,
-        tags: savePreferences.includeTags ? tags : undefined,
+        content: '', // 知识库保存不需要内容预览
+        target: 'wiki',
+        targetId: selectedWikiId,
       };
 
-      // 如果目标是知识库，需要指定知识库ID
-      if (selectedTarget === 'wiki') {
-        content.targetId = selectedWikiId;
-      }
+      await sendRequest(MessageType.SAVE_TO_FEISHU, content);
 
-      const response: MessageResponse = await chrome.runtime.sendMessage({
-        action: MessageType.SAVE_TO_FEISHU,
-        data: content,
-        timestamp: Date.now(),
-      });
+      // if (response.success) {
+      //   setSaveSuccess(true);
 
-      if (response.success) {
-        setSaveSuccess(true);
-
-        // 3秒后关闭弹窗
-        setTimeout(() => {
-          window.close();
-        }, 3000);
-      } else {
-        setError(response.error || '保存失败');
-      }
+      //   // 3秒后关闭弹窗
+      //   setTimeout(() => {
+      //     window.close();
+      //   }, 3000);
+      // } else {
+      //   setError(response.error || '保存失败');
+      // }
     } catch (error) {
       console.error('保存失败:', error);
       setError('保存失败');
@@ -231,153 +157,83 @@ const SaveToFeishu: React.FC = () => {
   // 渲染主界面
   return (
     <div className="flex h-[500px] flex-col">
-      {/* 可滚动的内容区域 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* 头部 */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <img src={chrome.runtime.getURL('icon-34.png')} alt="Save to Feishu" className="mr-2 h-6 w-6" />
-            <h1 className="text-lg font-bold">保存到飞书</h1>
-          </div>
+      {/* 头部 */}
+      <div className="border-b p-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold">Save to Notion</h1>
+          <Button variant="ghost" size="sm" onClick={() => window.close()}>
+            ✕
+          </Button>
         </div>
-
-        {/* 错误提示 */}
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* 内容编辑 */}
-        <div className="mb-4">
-          <Label htmlFor="title" className="mb-1 block">
-            标题
-          </Label>
-          <Input
-            id="title"
-            type="text"
-            value={pageInfo.title}
-            onChange={e => setPageInfo({ ...pageInfo, title: e.target.value })}
-          />
-        </div>
-
-        <div className="mb-4">
-          <Label htmlFor="url" className="mb-1 block">
-            URL
-          </Label>
-          <Input id="url" type="text" value={pageInfo.url} readOnly className="bg-muted" />
-        </div>
-
-        <div className="mb-4">
-          <Label htmlFor="content" className="mb-1 block">
-            内容预览
-          </Label>
-          <Textarea
-            id="content"
-            value={pageInfo.content}
-            onChange={e => setPageInfo({ ...pageInfo, content: e.target.value })}
-            className="h-24"
-          />
-        </div>
-
-        {/* 保存选项 */}
-        <div className="mb-4">
-          <Label className="mb-2 block">保存到</Label>
-          <div className="mb-2 flex space-x-2">
-            <Button
-              variant={selectedTarget === 'doc' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTarget('doc')}>
-              文档
-            </Button>
-            <Button
-              variant={selectedTarget === 'wiki' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTarget('wiki')}>
-              知识库
-            </Button>
-            <Button
-              variant={selectedTarget === 'note' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedTarget('note')}>
-              便签
-            </Button>
-          </div>
-
-          {/* 知识库选择 */}
-          {selectedTarget === 'wiki' && (
-            <div className="mb-4">
-              <Label htmlFor="wiki-select" className="mb-1 block">
-                选择知识库
-              </Label>
-              <Select value={selectedWikiId} onValueChange={setSelectedWikiId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="请选择知识库" />
-                </SelectTrigger>
-                <SelectContent>
-                  {wikis.map(wiki => (
-                    <SelectItem key={wiki.id} value={wiki.id}>
-                      {wiki.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-
-        {/* 标签 */}
-        {savePreferences.includeTags && (
-          <div className="mb-4">
-            <Label htmlFor="tag-input" className="mb-1 block">
-              标签
-            </Label>
-            <div className="mb-2 flex">
-              <Input
-                id="tag-input"
-                type="text"
-                value={currentTag}
-                onChange={e => setCurrentTag(e.target.value)}
-                placeholder="添加标签"
-                className="flex-1 rounded-r-none"
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddTag();
-                  }
-                }}
-              />
-              <Button variant="secondary" onClick={handleAddTag} className="rounded-l-none">
-                添加
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {tags.map(tag => (
-                <Badge key={tag} variant="secondary" className="flex items-center">
-                  {tag}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveTag(tag)}
-                    className="text-muted-foreground hover:text-foreground ml-1 h-auto p-0"
-                    aria-label={`删除标签 ${tag}`}>
-                    &times;
-                  </Button>
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 固定在底部的保存按钮 */}
-      <div className="bg-background border-t p-4">
+      {/* 错误提示 */}
+      {error && (
+        <div className="p-4">
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* 表单选择区域 */}
+      <div className="flex-1 p-4">
+        <div className="mb-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="rounded bg-blue-50 px-2 py-1 text-sm font-medium text-blue-600">Select Form</h2>
+            <Button variant="ghost" size="sm">
+              ⚙️
+            </Button>
+          </div>
+
+          {/* 知识库列表 */}
+          <div className="space-y-2">
+            {wikis.map(wiki => (
+              <button
+                key={wiki.id}
+                className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 hover:bg-gray-50 ${
+                  selectedWikiId === wiki.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                }`}
+                onClick={() => handleSelectWiki(wiki.id)}>
+                <div className="flex items-center">
+                  <div className="mr-3 text-gray-400">📚</div>
+                  <span className="font-medium">{wiki.name}</span>
+                </div>
+                <div className="text-gray-400">›</div>
+              </button>
+            ))}
+
+            {/* 添加新表单按钮 */}
+            <button
+              className="flex cursor-pointer items-center rounded-lg border border-dashed border-gray-300 p-3 hover:bg-gray-50"
+              onClick={() => setShowAddForm(true)}>
+              <div className="mr-3 text-gray-400">+</div>
+              <span className="text-gray-600">Add New Form</span>
+              <div className="ml-auto text-gray-400">📋</div>
+            </button>
+          </div>
+        </div>
+
+        {/* 页面信息显示 */}
+        <div className="mb-4 rounded-lg bg-gray-50 p-3">
+          <div className="mb-1 text-sm text-gray-600">标题</div>
+          <Input
+            value={pageInfo.title}
+            onChange={e => setPageInfo({ ...pageInfo, title: e.target.value })}
+            className="mb-2"
+          />
+          <div className="mb-1 text-sm text-gray-600">URL</div>
+          <Input value={pageInfo.url} readOnly className="bg-white" />
+        </div>
+      </div>
+
+      {/* 底部保存按钮 */}
+      <div className="border-t p-4">
         <Button
-          className="w-full"
-          onClick={handleSave}
-          disabled={isSaving || (selectedTarget === 'wiki' && !selectedWikiId)}>
-          {isSaving ? '正在保存...' : '保存到飞书'}
+          className="w-full bg-blue-600 hover:bg-blue-700"
+          onClick={handleSaveToWiki}
+          disabled={isSaving || !selectedWikiId}>
+          {isSaving ? '保存中...' : '保存到飞书'}
         </Button>
       </div>
     </div>

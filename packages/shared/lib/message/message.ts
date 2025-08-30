@@ -15,7 +15,7 @@ import type {
 // 发送 Request（需要返回值）
 const sendRequest = async <K extends MessageType>(
   type: K,
-  payload: MessagePayloadMap[K],
+  payload?: MessagePayloadMap[K],
 ): Promise<MessageResponseMap[K]> => {
   const msg = { kind: 'REQUEST' as const, type, payload };
   return new Promise((resolve, reject) => {
@@ -32,7 +32,7 @@ const sendRequest = async <K extends MessageType>(
 };
 
 // 发送 Event（单向通知，无返回值）
-const sendEvent = <K extends MessageType>(type: K, payload: MessagePayloadMap[K]): void => {
+const sendEvent = <K extends MessageType>(type: K, payload?: MessagePayloadMap[K]): void => {
   const msg = { kind: 'EVENT' as const, type, payload };
   if (chrome.runtime?.sendMessage) {
     chrome.runtime.sendMessage(msg);
@@ -64,7 +64,7 @@ const registerEventHandler = <K extends MessageType>(type: K, handler: EventHand
 
 // 初始化 Background 侧的消息监听
 const setupBackgroundMessageRouter = () => {
-  if (typeof chrome !== 'undefined' && !chrome.runtime?.onMessage) {
+  if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener(
       (msg: RequestMessage<MessageType> | EventMessage<MessageType>, _sender, sendResponse): boolean | void => {
         if (msg.kind === 'REQUEST') {

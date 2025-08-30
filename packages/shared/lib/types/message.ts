@@ -1,5 +1,9 @@
 //
 // 定义消息种类：REQUEST（请求/响应）、EVENT（单向通知）
+
+import type { FeishuWiki } from './feishu.js';
+import type { FeishuApiResponse } from '../services/feishu-request.js';
+
 //
 export type MessageKind = 'REQUEST' | 'EVENT';
 
@@ -9,8 +13,8 @@ export enum MessageType {
   // UI -> Background：请求弹出 Toast
   SHOW_TOAST = 'SHOW_TOAST',
 
-  // SAVE_TO_FEISHU = 'SAVE_TO_FEISHU',
-  // GET_WIKIS = 'GET_WIKIS',
+  SAVE_TO_FEISHU = 'SAVE_TO_FEISHU',
+  GET_WIKIS = 'GET_WIKIS',
 }
 
 // 显示 Toast 消息
@@ -30,6 +34,8 @@ export interface ShowToastMessagePayload {
 //
 export interface MessagePayloadMap {
   [MessageType.SHOW_TOAST]: ShowToastMessagePayload;
+  [MessageType.GET_WIKIS]: void;
+  [MessageType.SAVE_TO_FEISHU]: void;
 }
 
 //
@@ -38,6 +44,8 @@ export interface MessagePayloadMap {
 //
 export interface MessageResponseMap {
   SHOW_TOAST: void;
+  [MessageType.GET_WIKIS]: FeishuApiResponse<FeishuWiki[]>;
+  [MessageType.SAVE_TO_FEISHU]: void;
 }
 
 //
