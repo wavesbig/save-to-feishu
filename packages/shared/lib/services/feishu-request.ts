@@ -4,9 +4,10 @@
  * 基于axios封装飞书开放平台API请求
  */
 import { FEISHU_CONFIG } from '../config/feishu-config.js';
+import { notifyUI } from '../message/message.js';
 import { MessageType } from '../types/message.js';
 import axios from 'axios';
-import type { ShowToastMessage } from '../types/message.js';
+import type { ShowToastMessagePayload } from '../types/message.js';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 // 令牌管理
@@ -62,7 +63,7 @@ class FeishuRequest {
             this.handlePermissionError(data);
           } else {
             // 发送普通错误消息到UI层
-            this.sendErrorMessage(data.msg || '飞书API请求失败');
+            this.sendToastMessage(data.msg || '飞书API请求失败');
           }
 
           return Promise.reject(new Error(data.msg || '飞书API请求失败'));
@@ -93,7 +94,7 @@ class FeishuRequest {
         } else {
           // 发送网络错误消息到UI层
           const errorMessage = error.response?.data?.msg || error.message || '网络请求失败';
-          this.sendErrorMessage(errorMessage);
+          this.sendToastMessage(errorMessage);
         }
 
         return Promise.reject(error);
@@ -278,63 +279,78 @@ class FeishuRequest {
    */
   private handlePermissionError(data: FeishuApiResponse): void {
     try {
-      // 从msg字段中解析权限申请链接
-      const msgLinkMatch = data.msg?.match(/https:\/\/[^\s]+/);
-      const msgLink = msgLinkMatch ? msgLinkMatch[0] : undefined;
+      const permissionInfo = this.extractPermissionInfo(data);
+      const errorMessage = this.buildPermissionErrorMessage(permissionInfo.requiredScopes);
+      const helpUrl = this.getPermissionHelpUrl(data);
 
-      // 提取所需权限信息
-      const permissionViolations = data.error?.permission_violations || [];
-      const requiredScopes = permissionViolations
-        .filter(violation => violation.type === 'action_scope_required')
-        .map(violation => violation.subject)
-        .join(', ');
-
-      // 构建友好的错误提示
-      let errorMessage = '';
-
-      if (requiredScopes) {
-        errorMessage += `所需权限：${requiredScopes}，`;
-      }
-
-      errorMessage += '请联系管理员为应用申请相应权限。';
-
-      // 优先使用msg中的链接，其次使用error.helps中的链接
-      const helpUrl = data.error?.helps?.[0]?.url || msgLink;
-
-      // 发送详细的权限错误消息到UI层
-      this.sendErrorMessage('应用权限不足', {
+      this.sendToastMessage('应用权限不足', {
         description: errorMessage,
-        ...(helpUrl
-          ? {
-              actionText: '去申请',
-              actionUrl: helpUrl,
-            }
-          : {}),
+        ...(helpUrl && {
+          actionText: '去申请',
+          actionUrl: helpUrl,
+        }),
       });
     } catch (error) {
       console.error('处理权限错误时出现异常:', error);
-      // 降级处理：发送基本错误消息
-      this.sendErrorMessage(data.msg || '应用权限不足，请联系管理员申请相应权限');
+      this.sendToastMessage(data.msg || '应用权限不足，请联系管理员申请相应权限');
     }
   }
 
   /**
-   * 发送错误消息到UI层
+   * 提取权限信息
    */
-  private sendErrorMessage(message: string, data?: ShowToastMessage['data']): void {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-        const toastMessage: ShowToastMessage = {
-          action: MessageType.SHOW_TOAST,
-          type: 'error',
-          message: message,
-          data,
-        };
+  private extractPermissionInfo(data: FeishuApiResponse): { requiredScopes: string } {
+    const permissionViolations = data.error?.permission_violations || [];
+    const requiredScopes = permissionViolations
+      .filter(violation => violation.type === 'action_scope_required')
+      .map(violation => violation.subject)
+      .filter(Boolean)
+      .join(', ');
 
-        chrome.runtime.sendMessage(toastMessage);
-      }
+    return { requiredScopes };
+  }
+
+  /**
+   * 构建权限错误消息
+   */
+  private buildPermissionErrorMessage(requiredScopes: string): string {
+    let message = '';
+
+    if (requiredScopes) {
+      message += `所需权限：${requiredScopes}，`;
+    }
+
+    message += '请联系管理员为应用申请相应权限。';
+    return message;
+  }
+
+  /**
+   * 获取权限申请链接
+   */
+  private getPermissionHelpUrl(data: FeishuApiResponse): string | undefined {
+    // 优先使用error.helps中的链接
+    const helpUrl = data.error?.helps?.[0]?.url;
+    if (helpUrl) return helpUrl;
+
+    // 其次从msg字段中解析权限申请链接
+    const msgLinkMatch = data.msg?.match(/https:\/\/[^\s]+/);
+    return msgLinkMatch?.[0];
+  }
+
+  /**
+   * 发送消息到UI层
+   */
+  private sendToastMessage(message: string, data?: ShowToastMessagePayload['data']): void {
+    try {
+      const toastMessage: ShowToastMessagePayload = {
+        type: 'error',
+        message,
+        data,
+      };
+
+      notifyUI(MessageType.SHOW_TOAST, toastMessage);
     } catch (error) {
-      console.warn('发送错误消息失败:', error);
+      console.warn('发送Toast消息失败:', error);
     }
   }
 }
