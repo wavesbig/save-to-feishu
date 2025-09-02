@@ -20,3 +20,4 @@ export * from './ui/sonner';
 export * from './ui/switch';
 export * from './ui/table';
 export * from './ui/textarea';
+export * from './ui/alert-dialog';
