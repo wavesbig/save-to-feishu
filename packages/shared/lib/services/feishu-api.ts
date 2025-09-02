@@ -3,50 +3,53 @@
  * 封装与飞书开放平台的交互
  */
 import { feishuRequest } from './feishu-request.js';
-import type {
-  // FeishuDocument,
-  // FeishuNote,
-  // FeishuUser,
-  FeishuWiki,
-  // SaveContent,
-  // SaveHistory,
-  // SaveTarget,
-  // 创建文档的请求数据类型
-  CreateDocumentData,
-  CreateWikiDocumentData,
-  CreateNoteData,
-} from '../types/feishu.js';
+import type { GetBitableRecordsParams, BitableData } from '../types/feishu.js';
 
 /**
- * 获取用户的文档列表
+ * 查询多维表格记录
+ * @param params 查询参数
+ * @returns 查询结果
  */
-export const getDocuments = async () => await feishuRequest.get('/drive/v1/recent_used_docs');
+export const getBitableRecords = async (
+  params: Omit<GetBitableRecordsParams, 'app_token' | 'table_id'> & {
+    app_token?: string;
+    table_id?: string;
+  },
+) => {
+  // 从配置中获取app_token和table_id（如果未提供）
+  const appToken = params.app_token || (await feishuRequest.getAppToken());
+  const tableId = params.table_id || (await feishuRequest.getTableId());
 
-/**
- * 获取用户的知识库列表
- */
-export const getWikis = async () => await feishuRequest.get<FeishuWiki[]>('/wiki/v2/spaces');
+  if (!appToken) {
+    throw new Error('多维表格 App Token 未配置，请在设置中配置');
+  }
 
-/**
- * 获取用户的便签列表
- */
-export const getNotes = async () => await feishuRequest.get('/bitable/v1/apps/notes');
+  if (!tableId) {
+    throw new Error('多维表格 Table ID 未配置，请在设置中配置');
+  }
 
-/**
- * 创建文档
- */
-export const createDocument = async (data: CreateDocumentData) => await feishuRequest.post('/docx/v1/documents', data);
+  const requestBody = {
+    view_id: params.view_id,
+    field_names: params.field_names,
+    sort: params.sort,
+    filter: params.filter,
+  };
 
-/**
- * 创建知识库文档
- */
-export const createWikiDocument = async (wikiId: string, data: CreateWikiDocumentData) =>
-  await feishuRequest.post(`/wiki/v2/spaces/${wikiId}/nodes`, data);
+  const queryParams = new URLSearchParams();
+  if (params.user_id_type) {
+    queryParams.append('user_id_type', params.user_id_type);
+  }
+  if (params.page_token) {
+    queryParams.append('page_token', params.page_token);
+  }
+  if (params.page_size) {
+    queryParams.append('page_size', params.page_size.toString());
+  }
 
-/**
- * 创建便签
- */
-export const createNote = async (data: CreateNoteData) => await feishuRequest.post('/bitable/v1/apps/notes', data);
+  const url = `/bitable/v1/apps/${appToken}/tables/${tableId}/records/search${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+
+  return await feishuRequest.post<BitableData>(url, requestBody);
+};
 
 /**
  * 清除应用令牌

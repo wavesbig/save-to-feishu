@@ -1,4 +1,6 @@
+import { MessageType, sendRequest } from '@extension/shared';
 import { Button, Input, Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@extension/ui';
+import { toast } from '@extension/ui/lib/sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -18,7 +20,7 @@ const formSchema = z.object({
 
 const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -84,7 +86,6 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSaving(true);
-    setError(null);
 
     try {
       // 保存到本地存储
@@ -94,15 +95,24 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
         app_token: values.appToken.trim(),
         table_id: values.tableId.trim(),
       });
+      const res = await sendRequest(MessageType.GET_BITABLE_RECORDS, {
+        app_token: values.appToken.trim(),
+        table_id: values.tableId.trim(),
+        page_size: 20,
+      });
 
-      // 清除临时存储
-      await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
-
-      // 通知父组件配置已保存
-      onConfigSaved();
+      if (res.code === 0) {
+        // 通知父组件配置已保存
+        onConfigSaved();
+        // 清除临时存储
+        await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
+      } else {
+        // 保存到本地存储
+        await chrome.storage.local.remove(['feishuAppId', 'feishuAppSecret', 'app_token', 'table_id']);
+      }
     } catch (error) {
       console.error('保存配置失败:', error);
-      setError('保存配置失败');
+      toast.error('保存配置失败');
     } finally {
       setIsSaving(false);
     }
@@ -130,13 +140,6 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
         <h1 className="text-xl font-bold">配置飞书应用</h1>
         <p className="text-muted-foreground mt-2 text-center text-sm">请输入您的飞书应用信息</p>
       </div>
-
-      {/* 错误提示 */}
-      {error && (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive mb-4 rounded-md border p-3 text-sm">
-          {error}
-        </div>
-      )}
 
       {/* 配置表单 */}
       <Form {...form}>

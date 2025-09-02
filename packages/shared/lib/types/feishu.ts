@@ -1,104 +1,63 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * 飞书相关类型定义
  */
 
-// 保存目标类型
-export type SaveTarget = 'doc' | 'wiki' | 'note';
-
-// 文档类型
-export interface FeishuDocument {
-  obj_type: 'doc' | 'sheet' | 'bitable' | 'mindnote' | 'wiki';
-  obj_token: string;
-  title: string;
-  url: string;
-}
-
-// 知识库类型
-export interface FeishuWiki {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-// 便签类型
-export interface FeishuNote {
-  id: string;
-  title: string;
-  content: string;
-  created_time: number;
-  updated_time: number;
-}
-
-// 保存内容类型
-export interface SaveContent {
-  title: string;
-  url: string;
-  content: string;
-  tags?: string[];
-  target?: SaveTarget;
-  targetId?: string;
-}
-
-// 保存历史记录类型
-export interface SaveHistory {
-  id: string;
-  title: string;
-  url: string;
-  target: SaveTarget;
-  targetId: string;
-  saveTime: number;
-  tags?: string[];
-}
-
-// 保存偏好设置类型
-export interface SavePreferences {
-  defaultTarget: SaveTarget;
-  defaultWikiId?: string;
-  includeTags: boolean;
-  includeScreenshot: boolean;
-}
-
-// 文档创建数据类型
-export interface CreateDocumentData {
-  title: string;
-  content: {
-    blocks: Array<{
-      block_type: string;
-      text?: {
-        elements: Array<{
-          text_run: {
-            content: string;
-            text_element_style?: {
-              link?: {
-                url: string;
-              };
-            };
-          };
-        }>;
-      };
+// 多维表格查询记录请求参数类型
+export interface GetBitableRecordsParams {
+  app_token: string;
+  table_id: string;
+  view_id?: string;
+  field_names?: string[];
+  sort?: Array<{
+    field_name: string;
+    desc?: boolean;
+  }>;
+  filter?: {
+    conjunction: 'and' | 'or';
+    conditions: Array<{
+      field_name: string;
+      operator:
+        | 'is'
+        | 'isNot'
+        | 'contains'
+        | 'doesNotContain'
+        | 'isEmpty'
+        | 'isNotEmpty'
+        | 'isGreater'
+        | 'isGreaterEqual'
+        | 'isLess'
+        | 'isLessEqual';
+      value?: string | number | boolean | string[];
     }>;
   };
+  page_token?: string;
+  page_size?: number;
+  user_id_type?: 'open_id' | 'union_id' | 'user_id';
 }
 
-// 知识库文档创建数据类型
-export interface CreateWikiDocumentData {
-  title: string;
-  obj_type: 'doc';
-  content: string;
-}
-
-// 便签创建数据类型
-export interface CreateNoteData {
-  title: string;
-  body: {
-    content: string;
+// 多维表格记录类型
+export interface BitableRecord {
+  record_id: string;
+  fields: Record<string, any>;
+  created_by?: {
+    id: string;
+    name?: string;
+    email?: string;
   };
+  created_time?: number;
+  last_modified_by?: {
+    id: string;
+    name?: string;
+    email?: string;
+  };
+  last_modified_time?: number;
 }
 
-// 用户信息类型
-export interface FeishuUser {
-  user_id: string;
-  name: string;
-  avatar_url?: string;
-  email?: string;
+// 多维表格查询记录响应类型
+export interface BitableData {
+  has_more: boolean;
+  page_token?: string;
+  total?: number;
+  items: BitableRecord[];
 }

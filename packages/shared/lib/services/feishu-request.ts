@@ -142,7 +142,9 @@ class FeishuRequest {
    */
   private async getAccessTokens(): Promise<FeishuApiResponse> {
     const appId = await FEISHU_CONFIG.getAppId();
+    console.log('🚀 ~ FeishuRequest ~ getAccessTokens ~ appId:', appId);
     const appSecret = await FEISHU_CONFIG.getAppSecret();
+    console.log('🚀 ~ FeishuRequest ~ getAccessTokens ~ appSecret:', appSecret);
 
     if (!appId || !appSecret) {
       throw new Error('飞书应用配置不完整，请在设置页面配置APP_ID和APP_SECRET');
