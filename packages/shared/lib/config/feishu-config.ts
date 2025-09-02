@@ -48,4 +48,100 @@ export const FEISHU_CONFIG = {
     }
     return '';
   },
+
+  /**
+   * 异步获取多维表格Token
+   * 从本地存储获取用户设置的值
+   */
+  async getAppToken(): Promise<string> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const { app_token } = await chrome.storage.local.get('app_token');
+        if (app_token && app_token.trim()) {
+          return app_token.trim();
+        }
+      }
+    } catch (error) {
+      console.warn('获取本地存储的AppToken失败:', error);
+    }
+    return '';
+  },
+
+  /**
+   * 异步获取多维表格ID
+   * 从本地存储获取用户设置的值
+   */
+  async getTableId(): Promise<string> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        const { table_id } = await chrome.storage.local.get('table_id');
+        if (table_id && table_id.trim()) {
+          return table_id.trim();
+        }
+      }
+    } catch (error) {
+      console.warn('获取本地存储的TableId失败:', error);
+    }
+    return '';
+  },
+
+  /**
+   * 异步设置飞书应用ID
+   * 保存到本地存储
+   */
+  async setAppId(appId: string): Promise<void> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ feishuAppId: appId.trim() });
+      }
+    } catch (error) {
+      console.error('保存AppID到本地存储失败:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 异步设置飞书应用密钥
+   * 保存到本地存储
+   */
+  async setAppSecret(appSecret: string): Promise<void> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ feishuAppSecret: appSecret.trim() });
+      }
+    } catch (error) {
+      console.error('保存AppSecret到本地存储失败:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 异步设置多维表格Token
+   * 保存到本地存储
+   */
+  async setAppToken(appToken: string): Promise<void> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ app_token: appToken.trim() });
+      }
+    } catch (error) {
+      console.error('保存AppToken到本地存储失败:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 异步设置多维表格ID
+   * 保存到本地存储
+   */
+  async setTableId(tableId: string): Promise<void> {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ table_id: tableId.trim() });
+      }
+    } catch (error) {
+      console.error('保存TableId到本地存储失败:', error);
+      throw error;
+    }
+  },
 };

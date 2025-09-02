@@ -1,31 +1,66 @@
-import { Button, Input, Label } from '@extension/ui';
+import { Button, Input, Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@extension/ui';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 import type React from 'react';
 
 interface ConfigPromptProps {
   onConfigSaved: () => void;
 }
 
+const formSchema = z.object({
+  appId: z.string().min(1, '请输入应用ID'),
+  appSecret: z.string().min(1, '请输入应用密钥'),
+  appToken: z.string().min(1, '请输入多维表格Token'),
+  tableId: z.string().min(1, '请输入多维表格ID'),
+});
+
 const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
-  const [appId, setAppId] = useState('');
-  const [appSecret, setAppSecret] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      appId: '',
+      appSecret: '',
+      appToken: '',
+      tableId: '',
+    },
+  });
 
   // 组件加载时从存储中读取数据
   useEffect(() => {
     const loadStoredData = async () => {
       try {
-        const result = await chrome.storage.local.get(['feishuAppId', 'feishuAppSecret', 'tempAppId', 'tempAppSecret']);
+        const result = await chrome.storage.local.get([
+          'feishuAppId',
+          'feishuAppSecret',
+          'app_token',
+          'table_id',
+          'tempAppId',
+          'tempAppSecret',
+          'tempAppToken',
+          'tempTableId',
+        ]);
 
         // 优先使用已保存的配置，如果没有则使用临时保存的输入
         if (result.feishuAppId && result.feishuAppSecret) {
-          setAppId(result.feishuAppId);
-          setAppSecret(result.feishuAppSecret);
-        } else if (result.tempAppId || result.tempAppSecret) {
-          setAppId(result.tempAppId || '');
-          setAppSecret(result.tempAppSecret || '');
+          form.reset({
+            appId: result.feishuAppId,
+            appSecret: result.feishuAppSecret,
+            appToken: result.app_token || '',
+            tableId: result.table_id || '',
+          });
+        } else if (result.tempAppId || result.tempAppSecret || result.tempAppToken || result.tempTableId) {
+          form.reset({
+            appId: result.tempAppId || '',
+            appSecret: result.tempAppSecret || '',
+            appToken: result.tempAppToken || '',
+            tableId: result.tempTableId || '',
+          });
         }
       } catch (error) {
         console.error('加载存储数据失败:', error);
@@ -35,45 +70,33 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
     };
 
     loadStoredData();
-  }, []);
+  }, [form]);
 
   // 实时保存用户输入到临时存储
-  const handleAppIdChange = async (value: string) => {
-    setAppId(value);
+  const handleFieldChange = async (field: string, value: string) => {
     try {
-      await chrome.storage.local.set({ tempAppId: value });
+      const tempKey = `temp${field.charAt(0).toUpperCase() + field.slice(1)}`;
+      await chrome.storage.local.set({ [tempKey]: value });
     } catch (error) {
       console.error('保存临时数据失败:', error);
     }
   };
 
-  const handleAppSecretChange = async (value: string) => {
-    setAppSecret(value);
-    try {
-      await chrome.storage.local.set({ tempAppSecret: value });
-    } catch (error) {
-      console.error('保存临时数据失败:', error);
-    }
-  };
-
-  const handleSaveConfig = async () => {
-    if (!appId.trim() || !appSecret.trim()) {
-      setError('请填写完整的应用信息');
-      return;
-    }
-
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSaving(true);
     setError(null);
 
     try {
       // 保存到本地存储
       await chrome.storage.local.set({
-        feishuAppId: appId.trim(),
-        feishuAppSecret: appSecret.trim(),
+        feishuAppId: values.appId.trim(),
+        feishuAppSecret: values.appSecret.trim(),
+        app_token: values.appToken.trim(),
+        table_id: values.tableId.trim(),
       });
 
       // 清除临时存储
-      await chrome.storage.local.remove(['tempAppId', 'tempAppSecret']);
+      await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
 
       // 通知父组件配置已保存
       onConfigSaved();
@@ -116,54 +139,112 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
       )}
 
       {/* 配置表单 */}
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="appId" className="mb-1 block">
-            应用 ID (App ID)
-          </Label>
-          <Input
-            id="appId"
-            type="text"
-            value={appId}
-            onChange={e => handleAppIdChange(e.target.value)}
-            placeholder="请输入飞书应用 ID"
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="appId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>应用 ID (App ID)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="请输入飞书应用 ID"
+                    {...field}
+                    onChange={e => {
+                      field.onChange(e);
+                      handleFieldChange('appId', e.target.value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
 
-        <div>
-          <Label htmlFor="appSecret" className="mb-1 block">
-            应用密钥 (App Secret)
-          </Label>
-          <Input
-            id="appSecret"
-            type="password"
-            value={appSecret}
-            onChange={e => handleAppSecretChange(e.target.value)}
-            placeholder="请输入飞书应用密钥"
+          <FormField
+            control={form.control}
+            name="appSecret"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>应用密钥 (App Secret)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="请输入飞书应用密钥"
+                    {...field}
+                    onChange={e => {
+                      field.onChange(e);
+                      handleFieldChange('appSecret', e.target.value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
 
-        <div className="pt-2">
-          <Button
-            className="w-full"
-            onClick={handleSaveConfig}
-            disabled={isSaving || !appId.trim() || !appSecret.trim()}>
-            {isSaving ? '正在保存...' : '保存配置'}
-          </Button>
-        </div>
+          <FormField
+            control={form.control}
+            name="appToken"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>多维表格 Token (App Token)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="请输入多维表格 Token"
+                    {...field}
+                    onChange={e => {
+                      field.onChange(e);
+                      handleFieldChange('appToken', e.target.value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className="text-center">
-          <p className="text-muted-foreground text-xs">
-            如需获取应用信息，请访问{' '}
-            <a
-              href="https://open.feishu.cn/app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline">
-              飞书开放平台
-            </a>
-          </p>
-        </div>
+          <FormField
+            control={form.control}
+            name="tableId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>多维表格 ID (Table ID)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="请输入多维表格 ID"
+                    {...field}
+                    onChange={e => {
+                      field.onChange(e);
+                      handleFieldChange('tableId', e.target.value);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="pt-2">
+            <Button type="submit" className="w-full" disabled={isSaving}>
+              {isSaving ? '正在保存...' : '保存配置'}
+            </Button>
+          </div>
+        </form>
+      </Form>
+
+      <div className="mt-4 text-center">
+        <p className="text-muted-foreground text-xs">
+          如需获取应用信息，请访问{' '}
+          <a
+            href="https://open.feishu.cn/app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline">
+            飞书开放平台
+          </a>
+        </p>
       </div>
     </div>
   );

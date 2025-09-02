@@ -252,6 +252,20 @@ class FeishuRequest {
   }
 
   /**
+   * 获取多维表格Token
+   */
+  public async getAppToken(): Promise<string> {
+    return await FEISHU_CONFIG.getAppToken();
+  }
+
+  /**
+   * 获取多维表格ID
+   */
+  public async getTableId(): Promise<string> {
+    return await FEISHU_CONFIG.getTableId();
+  }
+
+  /**
    * 清除所有令牌
    */
   public async clearTokens(): Promise<void> {
