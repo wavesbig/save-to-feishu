@@ -1,5 +1,22 @@
 import { MessageType, sendRequest, validateRequiredFields } from '@extension/shared';
-import { Button, Input, Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@extension/ui';
+import {
+  Button,
+  Input,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@extension/ui';
 import { toast } from '@extension/ui/lib/sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useEffect } from 'react';
@@ -20,8 +37,8 @@ const formSchema = z.object({
 
 const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
   const [isSaving, setIsSaving] = useState(false);
-
   const [isLoading, setIsLoading] = useState(true);
+  const [validationError, setValidationError] = useState<string>('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -116,31 +133,32 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
           await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
         } else {
           // 字段验证失败，显示详细错误信息
-          let errorMessage = '多维表格字段验证失败：\n';
+          let errorMessage = '多维表格字段验证失败：\n\n';
 
           if (validation.missingFields.length > 0) {
-            errorMessage += '\n缺少必需字段：\n';
+            errorMessage += '缺少必需字段：\n';
             validation.missingFields.forEach(field => {
-              errorMessage += `- ${field.field_name} (类型: ${field.ui_type})\n`;
+              errorMessage += `• ${field.field_name} (类型: ${field.ui_type})\n`;
             });
+            errorMessage += '\n';
           }
 
           if (validation.invalidFields.length > 0) {
-            errorMessage += '\n字段类型不匹配：\n';
+            errorMessage += '字段类型不匹配：\n';
             validation.invalidFields.forEach(({ field, expected, actual }) => {
-              errorMessage += `- ${field.field_name}: 期望 ${expected}，实际 ${actual}\n`;
+              errorMessage += `• ${field.field_name}: 期望 ${expected}，实际 ${actual}\n`;
             });
+            errorMessage += '\n';
           }
 
-          errorMessage += '\n请确保多维表格包含以下字段：\n';
-          errorMessage += '- 标题 (文本类型)\n';
-          errorMessage += '- url (超链接类型)\n';
-          errorMessage += '- tag (多选类型)\n';
-          errorMessage += '- icon (附件类型)\n\n';
-          errorMessage += '您可以使用以下模板快速设置：\n';
-          errorMessage += 'https://r57ssyz8cr.feishu.cn/base/KAoIbSoDfaUPd4s8GjdcsnZenBd?from=from_copylink';
+          errorMessage += '请确保多维表格包含以下字段：\n';
+          errorMessage += '• 标题 (文本类型)\n';
+          errorMessage += '• url (超链接类型)\n';
+          errorMessage += '• tag (多选类型)\n';
+          errorMessage += '• icon (附件类型)\n\n';
+          errorMessage += '您可以使用模板快速设置正确的字段结构。';
 
-          toast.error(errorMessage);
+          setValidationError(errorMessage);
           // 移除无效配置
           await chrome.storage.local.remove(['feishuAppId', 'feishuAppSecret', 'app_token', 'table_id']);
         }
@@ -287,6 +305,29 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
           </a>
         </p>
       </div>
+
+      {/* 字段验证错误弹窗 */}
+      <AlertDialog open={!!validationError} onOpenChange={() => setValidationError('')}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">字段验证失败</AlertDialogTitle>
+            <AlertDialogDescription className="whitespace-pre-line text-left">{validationError}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
+            <AlertDialogAction
+              onClick={() => {
+                window.open(
+                  'https://r57ssyz8cr.feishu.cn/base/KAoIbSoDfaUPd4s8GjdcsnZenBd?from=from_copylink',
+                  '_blank',
+                );
+              }}
+              className="bg-blue-600 hover:bg-blue-700">
+              使用模板
+            </AlertDialogAction>
+            <AlertDialogCancel onClick={() => setValidationError('')}>我知道了</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

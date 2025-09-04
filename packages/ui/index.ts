@@ -16,3 +16,4 @@ export * from './lib/components/ui/textarea';
 export * from './lib/components/ui/table';
 export * from './lib/components/ui/sonner';
 export * from './lib/components/ui/badge';
+export * from './lib/components/ui/alert-dialog';
