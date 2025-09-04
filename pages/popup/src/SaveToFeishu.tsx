@@ -1,5 +1,5 @@
 import ConfigPrompt from './ConfigPrompt';
-import { useStorage, validateConfiguration } from '@extension/shared';
+import { useStorage, validateConfiguration, createBitableRecord } from '@extension/shared';
 // import { sendRequest } from '@extension/shared/lib/message/message';
 import { feishuStorage } from '@extension/storage';
 import {
@@ -117,20 +117,32 @@ const SaveToFeishu: React.FC = () => {
 
     try {
       console.log('保存数据:', values);
-      // TODO: 实现实际的保存逻辑
-      // const response = await sendRequest(MessageType.SAVE_TO_FEISHU, {
-      //   wikiId: data.wikiId,
-      //   data: data
-      // });
-      // if (response.success) {
-      //   setSaveSuccess(true);
-      //   // 3秒后关闭弹窗
-      //   setTimeout(() => {
-      //     window.close();
-      //   }, 3000);
-      // } else {
-      //   setError(response.error || '保存失败');
-      // }
+
+      // 构建要保存到飞书多维表格的字段数据
+      const recordFields: Record<string, string | string[]> = {
+        标题: values.title,
+        url: values.url,
+        tag: values.tag,
+        icon: values.icon,
+      };
+
+      // 调用飞书API创建记录
+      const response = await createBitableRecord({
+        fields: recordFields,
+        user_id_type: 'open_id',
+      });
+
+      if (response.data?.record) {
+        console.log('保存成功:', response.data.record);
+        setSaveSuccess(true);
+
+        // 3秒后关闭弹窗
+        setTimeout(() => {
+          window.close();
+        }, 3000);
+      } else {
+        setError('保存失败：未返回有效数据');
+      }
     } catch (error) {
       console.error('保存失败:', error);
       setError('保存失败');

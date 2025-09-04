@@ -54,6 +54,21 @@ export interface BitableRecord {
   last_modified_time?: number;
 }
 
+// 新增记录请求参数类型
+export interface CreateBitableRecordParams {
+  appToken: string;
+  tableId: string;
+  fields: Record<string, any>;
+  user_id_type?: 'open_id' | 'union_id' | 'user_id';
+  client_token?: string;
+  ignore_consistency_check?: boolean;
+}
+
+// 新增记录响应数据类型
+export interface CreateBitableRecordData {
+  record: BitableRecord;
+}
+
 // 多维表格查询记录响应类型
 export interface BitableData {
   has_more: boolean;
@@ -94,10 +109,26 @@ export interface BitableField {
   is_primary?: boolean;
 }
 
-// 获取字段响应类型
+// 多维表格字段响应数据类型
 export interface BitableFieldsData {
   has_more: boolean;
   page_token?: string;
   total?: number;
   items: BitableField[];
+}
+
+// 上传文件请求参数类型
+export interface UploadMediaParams {
+  file_name: string;
+  parent_type: 'doc_image' | 'docx_image' | 'sheet_image' | 'doc_file' | 'docx_file';
+  parent_node: string;
+  size: number;
+  checksum?: string;
+  extra?: string;
+  file: File | Blob;
+}
+
+// 上传文件响应数据类型
+export interface UploadMediaData {
+  file_token: string;
 }
