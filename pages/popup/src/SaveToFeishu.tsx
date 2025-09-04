@@ -1,27 +1,62 @@
 import ConfigPrompt from './ConfigPrompt';
-import { useStorage, MessageType, validateConfiguration } from '@extension/shared';
-import { sendRequest } from '@extension/shared/lib/message/message';
+import { useStorage, validateConfiguration } from '@extension/shared';
+// import { sendRequest } from '@extension/shared/lib/message/message';
 import { feishuStorage } from '@extension/storage';
-import { Button, Input, Alert, AlertDescription, Card, CardContent, CardTitle } from '@extension/ui';
-import { useEffect, useState } from 'react';
+import {
+  Button,
+  Input,
+  Alert,
+  AlertDescription,
+  Card,
+  CardContent,
+  CardTitle,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  MultiSelect,
+} from '@extension/ui';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import type { BitableField } from '@extension/shared';
 import type React from 'react';
+
+const formSchema = z.object({
+  title: z.string().min(1, '请输入标题'),
+  url: z.string().min(1, '请输入url'),
+  tag: z.array(z.string()).min(1, '请选择标签'),
+  icon: z.string().min(1, '请选择图标'),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 const SaveToFeishu: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
-  const [pageInfo, setPageInfo] = useState<{ title: string; url: string }>({
-    title: '',
-    url: '',
-  });
-
-  const [selectedWikiId, setSelectedWikiId] = useState<string>('');
+  const [fields, setFields] = useState<BitableField[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [, setShowAddForm] = useState(false);
-  const [wikis, setWikis] = useState([]);
 
   // 获取保存偏好设置
   const { savePreferences } = useStorage(feishuStorage);
+
+  const tagOptions = useMemo(() => {
+    const options = fields.find(field => field.field_name === 'tag')?.property?.options;
+    return options || [];
+  }, [fields]);
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      url: '',
+      tag: [],
+    },
+  });
 
   // 初始化
   useEffect(() => {
@@ -54,25 +89,17 @@ const SaveToFeishu: React.FC = () => {
       }
 
       setIsConfigured(true);
-
-      // 获取知识库列表
-      try {
-        const wikisResponse = await sendRequest(MessageType.GET_WIKIS);
-        console.log('🚀 ~ init ~ wikisResponse:', wikisResponse);
-
-        if (wikisResponse.success && wikisResponse.data && wikisResponse.data.items) {
-          setWikis(wikisResponse.data.items);
-        }
-      } catch (error) {
-        console.error('获取知识库列表失败:', error);
-      }
+      setFields(configValidation.fields || []);
 
       // 获取当前页面信息
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
       if (tab && tab.url && tab.title) {
-        setPageInfo({
-          title: tab.title || '',
-          url: tab.url || '',
+        form.reset({
+          url: tab.url,
+          title: tab.title,
+          tag: [],
+          icon: '',
         });
       }
     } catch (error) {
@@ -82,23 +109,19 @@ const SaveToFeishu: React.FC = () => {
     }
   };
 
-  // 处理选择知识库
-  const handleSelectWiki = (wikiId: string) => {
-    setSelectedWikiId(wikiId);
-  };
-
-  // 处理保存到知识库
-  const handleSaveToWiki = async () => {
-    if (!selectedWikiId) {
-      setError('请选择知识库');
-      return;
-    }
-
+  // 处理表单提交
+  const onSubmit = async (values: FormData) => {
     setIsSaving(true);
     setSaveSuccess(false);
     setError(null);
 
     try {
+      console.log('保存数据:', values);
+      // TODO: 实现实际的保存逻辑
+      // const response = await sendRequest(MessageType.SAVE_TO_FEISHU, {
+      //   wikiId: data.wikiId,
+      //   data: data
+      // });
       // if (response.success) {
       //   setSaveSuccess(true);
       //   // 3秒后关闭弹窗
@@ -149,7 +172,7 @@ const SaveToFeishu: React.FC = () => {
       {/* 头部 */}
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Save to Notion</h1>
+          <h1 className="text-lg font-semibold">Save to Feishu</h1>
           <Button variant="ghost" size="sm" onClick={() => window.close()}>
             ✕
           </Button>
@@ -165,65 +188,115 @@ const SaveToFeishu: React.FC = () => {
         </div>
       )}
 
-      {/* 表单选择区域 */}
+      {/* 表单区域 */}
       <div className="flex-1 p-4">
-        <div className="mb-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="rounded bg-blue-50 px-2 py-1 text-sm font-medium text-blue-600">Select Form</h2>
-            <Button variant="ghost" size="sm">
-              ⚙️
-            </Button>
-          </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    标题
+                    <span className="ml-1 text-red-500">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="请输入标题" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Url
+                    <span className="ml-1 text-red-500">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="请输入Url" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="tag"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    tag
+                    <span className="ml-1 text-red-500">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <MultiSelect
+                      options={tagOptions?.map(item => ({
+                        label: item.name,
+                        value: item.id,
+                      }))}
+                      onValueChange={field.onChange}
+                      defaultValue={field.value || []}
+                      placeholder={'请选择标签'}
+                      searchable={true}
+                      maxCount={3}
+                      className="w-full"
+                      modalPopover={true}
+                      popoverClassName="max-h-[200px]"
+                      responsive={{
+                        mobile: {
+                          maxCount: 2,
+                          compactMode: true,
+                        },
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="icon"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    icon
+                    <span className="ml-1 text-red-500">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <div className="space-y-2">
+                      <Input
+                        type="file"
+                        multiple
+                        onChange={e => {
+                          const files = Array.from(e.target.files || []);
+                          field.onChange(files);
+                        }}
+                        accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      />
+                      {field.value && field.value.length > 0 && (
+                        <div className="text-sm text-gray-600">已选择 {field.value.length} 个文件</div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          {/* 知识库列表 */}
-          <div className="space-y-2">
-            {wikis.map(wiki => (
-              <button
-                key={wiki.id}
-                className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 hover:bg-gray-50 ${
-                  selectedWikiId === wiki.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                }`}
-                onClick={() => handleSelectWiki(wiki.id)}>
-                <div className="flex items-center">
-                  <div className="mr-3 text-gray-400">📚</div>
-                  <span className="font-medium">{wiki.name}</span>
-                </div>
-                <div className="text-gray-400">›</div>
-              </button>
-            ))}
-
-            {/* 添加新表单按钮 */}
-            <button
-              className="flex cursor-pointer items-center rounded-lg border border-dashed border-gray-300 p-3 hover:bg-gray-50"
-              onClick={() => setShowAddForm(true)}>
-              <div className="mr-3 text-gray-400">+</div>
-              <span className="text-gray-600">Add New Form</span>
-              <div className="ml-auto text-gray-400">📋</div>
-            </button>
-          </div>
-        </div>
-
-        {/* 页面信息显示 */}
-        <div className="mb-4 rounded-lg bg-gray-50 p-3">
-          <div className="mb-1 text-sm text-gray-600">标题</div>
-          <Input
-            value={pageInfo.title}
-            onChange={e => setPageInfo({ ...pageInfo, title: e.target.value })}
-            className="mb-2"
-          />
-          <div className="mb-1 text-sm text-gray-600">URL</div>
-          <Input value={pageInfo.url} readOnly className="bg-white" />
-        </div>
-      </div>
-
-      {/* 底部保存按钮 */}
-      <div className="border-t p-4">
-        <Button
-          className="w-full bg-blue-600 hover:bg-blue-700"
-          onClick={handleSaveToWiki}
-          disabled={isSaving || !selectedWikiId}>
-          {isSaving ? '保存中...' : '保存到飞书'}
-        </Button>
+            {/* 提交按钮 */}
+            <div className="pt-4">
+              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
+                {isSaving ? '保存中...' : '保存到飞书'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
     </div>
   );

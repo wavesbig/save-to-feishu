@@ -72,12 +72,24 @@ export interface GetBitableFieldsParams {
   page_size?: number;
 }
 
+/** 单选、多选字段的选项信息 */
+export interface BitableSelectFieldOption {
+  name: string;
+  /** 选项 ID，创建时不允许指定 ID */
+  id: string;
+  /** 选项颜色 */
+  color: number;
+}
+
 // 字段类型
 export interface BitableField {
   field_id: string;
   field_name: string;
   type: number;
-  property?: Record<string, any>;
+  property?: {
+    options?: BitableSelectFieldOption[];
+    [key: string]: any;
+  };
   description?: string | Array<{ text: string; type: string }>;
   is_primary?: boolean;
 }

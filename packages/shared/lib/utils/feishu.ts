@@ -84,6 +84,8 @@ export interface ConfigValidationResult {
   errorMessage?: string;
   missingFields?: Array<{ field_name: string; ui_type: string }>;
   invalidFields?: Array<{ field: BitableField; expected: string; actual: string }>;
+  /** 表格的字段 */
+  fields?: BitableField[];
 }
 
 // 基础配置检查
@@ -213,6 +215,7 @@ export const validateConfiguration = async (): Promise<ConfigValidationResult> =
     }
 
     return {
+      fields: fieldValidation.fields || [],
       isValid: true,
     };
   } catch (error) {

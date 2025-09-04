@@ -21,3 +21,6 @@ export * from './ui/switch';
 export * from './ui/table';
 export * from './ui/textarea';
 export * from './ui/alert-dialog';
+export * from './ui/separator';
+export * from './ui/command';
+export * from './ui/multi-select';
