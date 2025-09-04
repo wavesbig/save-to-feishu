@@ -1,6 +1,6 @@
 import ConfigPrompt from './ConfigPrompt';
-import { useStorage, validateConfiguration, createBitableRecord } from '@extension/shared';
-// import { sendRequest } from '@extension/shared/lib/message/message';
+import { useStorage, validateConfiguration, MessageType } from '@extension/shared';
+import { sendRequest } from '@extension/shared/lib/message/message';
 import { feishuStorage } from '@extension/storage';
 import {
   Button,
@@ -29,7 +29,7 @@ const formSchema = z.object({
   title: z.string().min(1, '请输入标题'),
   url: z.string().min(1, '请输入url'),
   tag: z.array(z.string()).min(1, '请选择标签'),
-  icon: z.string().min(1, '请选择图标'),
+  icon: z.instanceof(File).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -99,7 +99,6 @@ const SaveToFeishu: React.FC = () => {
           url: tab.url,
           title: tab.title,
           tag: [],
-          icon: '',
         });
       }
     } catch (error) {
@@ -119,15 +118,44 @@ const SaveToFeishu: React.FC = () => {
       console.log('保存数据:', values);
 
       // 构建要保存到飞书多维表格的字段数据
-      const recordFields: Record<string, string | string[]> = {
+      const recordFields: Record<
+        string,
+        | string
+        | string[]
+        | {
+            text?: string;
+            link: string;
+          }
+      > = {
         标题: values.title,
-        url: values.url,
+        url: {
+          link: values.url,
+        },
         tag: values.tag,
-        icon: values.icon,
       };
 
+      // 如果有icon文件，先上传文件
+      if (values.icon) {
+        try {
+          const uploadResponse = await sendRequest(MessageType.UPLOAD_MEDIA, {
+            file_name: values.icon.name,
+            parent_type: 'doc_file',
+            parent_node: 'root',
+            size: values.icon.size,
+            file: values.icon,
+          });
+
+          if (uploadResponse.data?.file_token) {
+            recordFields.icon = uploadResponse.data.file_token;
+          }
+        } catch (uploadError) {
+          console.error('文件上传失败:', uploadError);
+          // 文件上传失败时继续保存记录，但不包含icon
+        }
+      }
+
       // 调用飞书API创建记录
-      const response = await createBitableRecord({
+      const response = await sendRequest(MessageType.CREATE_BITABLE_RECORD, {
         fields: recordFields,
         user_id_type: 'open_id',
       });
@@ -249,7 +277,7 @@ const SaveToFeishu: React.FC = () => {
                     <MultiSelect
                       options={tagOptions?.map(item => ({
                         label: item.name,
-                        value: item.id,
+                        value: item.name,
                       }))}
                       onValueChange={field.onChange}
                       defaultValue={field.value || []}
@@ -276,24 +304,18 @@ const SaveToFeishu: React.FC = () => {
               name="icon"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    icon
-                    <span className="ml-1 text-red-500">*</span>
-                  </FormLabel>
+                  <FormLabel>icon</FormLabel>
                   <FormControl>
                     <div className="space-y-2">
                       <Input
                         type="file"
-                        multiple
                         onChange={e => {
-                          const files = Array.from(e.target.files || []);
-                          field.onChange(files);
+                          const file = e.target.files?.[0] || null;
+                          field.onChange(file);
                         }}
                         accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       />
-                      {field.value && field.value.length > 0 && (
-                        <div className="text-sm text-gray-600">已选择 {field.value.length} 个文件</div>
-                      )}
+                      {field.value && <div className="text-sm text-gray-600">已选择文件: {field.value.name}</div>}
                     </div>
                   </FormControl>
                   <FormMessage />

@@ -1,6 +1,15 @@
 //
 // 定义消息种类：REQUEST（请求/响应）、EVENT（单向通知）
-import type { BitableData, BitableFieldsData, GetBitableFieldsParams, GetBitableRecordsParams } from './feishu.js';
+import type {
+  BitableData,
+  BitableFieldsData,
+  GetBitableFieldsParams,
+  GetBitableRecordsParams,
+  CreateBitableRecordParams,
+  CreateBitableRecordData,
+  UploadMediaParams,
+  UploadMediaData,
+} from './feishu.js';
 import type { FeishuApiResponse } from '../services/feishu-request.js';
 
 //
@@ -15,6 +24,10 @@ export enum MessageType {
   GET_BITABLE_RECORDS = 'GET_BITABLE_RECORDS',
   // 获取多维表格字段
   GET_BITABLE_FIELDS = 'GET_BITABLE_FIELDS',
+  // 创建多维表格记录
+  CREATE_BITABLE_RECORD = 'CREATE_BITABLE_RECORD',
+  // 上传文件
+  UPLOAD_MEDIA = 'UPLOAD_MEDIA',
 }
 
 // 显示 Toast 消息
@@ -37,6 +50,8 @@ export interface MessagePayloadMap {
 
   [MessageType.GET_BITABLE_RECORDS]: GetBitableRecordsParams;
   [MessageType.GET_BITABLE_FIELDS]: GetBitableFieldsParams;
+  [MessageType.CREATE_BITABLE_RECORD]: Omit<CreateBitableRecordParams, 'appToken' | 'tableId'>;
+  [MessageType.UPLOAD_MEDIA]: UploadMediaParams;
 }
 
 //
@@ -47,6 +62,8 @@ export interface MessageResponseMap {
   SHOW_TOAST: void;
   [MessageType.GET_BITABLE_RECORDS]: FeishuApiResponse<BitableData>;
   [MessageType.GET_BITABLE_FIELDS]: FeishuApiResponse<BitableFieldsData>;
+  [MessageType.CREATE_BITABLE_RECORD]: FeishuApiResponse<CreateBitableRecordData>;
+  [MessageType.UPLOAD_MEDIA]: FeishuApiResponse<UploadMediaData>;
 }
 
 //
