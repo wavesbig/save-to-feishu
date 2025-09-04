@@ -1,10 +1,9 @@
 import ConfigPrompt from './ConfigPrompt';
-import { useStorage, FEISHU_CONFIG, MessageType } from '@extension/shared';
+import { useStorage, MessageType, validateConfiguration } from '@extension/shared';
 import { sendRequest } from '@extension/shared/lib/message/message';
 import { feishuStorage } from '@extension/storage';
 import { Button, Input, Alert, AlertDescription, Card, CardContent, CardTitle } from '@extension/ui';
 import { useEffect, useState } from 'react';
-import type { FeishuWiki, SaveContent } from '@extension/shared';
 import type React from 'react';
 
 const SaveToFeishu: React.FC = () => {
@@ -14,11 +13,12 @@ const SaveToFeishu: React.FC = () => {
     title: '',
     url: '',
   });
-  const [wikis] = useState<FeishuWiki[]>([]);
+
   const [selectedWikiId, setSelectedWikiId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [, setShowAddForm] = useState(false);
+  const [wikis, setWikis] = useState([]);
 
   // 获取保存偏好设置
   const { savePreferences } = useStorage(feishuStorage);
@@ -28,21 +28,27 @@ const SaveToFeishu: React.FC = () => {
     init();
   }, [savePreferences]);
 
-  // 处理配置保存完成
-  const handleConfigSaved = () => {
-    // 重新初始化，检查配置状态
-    setIsConfigured(null);
-    init();
+  // 处理配置保存后的回调
+  const handleConfigSaved = async () => {
+    try {
+      setError('');
+      await init();
+    } catch (error) {
+      console.error('配置保存后初始化失败:', error);
+      setIsConfigured(false);
+      setError('配置验证失败');
+    }
   };
 
   // 将初始化逻辑提取为独立函数
   const init = async () => {
     try {
-      // 检查飞书应用配置
-      const appId = await FEISHU_CONFIG.getAppId();
-      const appSecret = await FEISHU_CONFIG.getAppSecret();
+      // 使用统一的配置验证函数
+      const configValidation = await validateConfiguration();
 
-      if (!appId || !appSecret) {
+      if (!configValidation.isValid) {
+        console.warn('配置验证失败:', configValidation.errorMessage);
+
         setIsConfigured(false);
         return;
       }
@@ -55,7 +61,7 @@ const SaveToFeishu: React.FC = () => {
         console.log('🚀 ~ init ~ wikisResponse:', wikisResponse);
 
         if (wikisResponse.success && wikisResponse.data && wikisResponse.data.items) {
-          // setWikis(wikisResponse.data.items);
+          setWikis(wikisResponse.data.items);
         }
       } catch (error) {
         console.error('获取知识库列表失败:', error);
@@ -69,16 +75,10 @@ const SaveToFeishu: React.FC = () => {
           url: tab.url || '',
         });
       }
-
-      // 设置默认知识库
-      if (savePreferences && savePreferences.defaultWikiId) {
-        setSelectedWikiId(savePreferences.defaultWikiId);
-      } else if (wikis.length > 0) {
-        setSelectedWikiId(wikis[0].id);
-      }
     } catch (error) {
       console.error('初始化失败:', error);
       setError('初始化失败');
+      setIsConfigured(false);
     }
   };
 
@@ -99,19 +99,8 @@ const SaveToFeishu: React.FC = () => {
     setError(null);
 
     try {
-      const content: SaveContent = {
-        title: pageInfo.title,
-        url: pageInfo.url,
-        content: '', // 知识库保存不需要内容预览
-        target: 'wiki',
-        targetId: selectedWikiId,
-      };
-
-      await sendRequest(MessageType.SAVE_TO_FEISHU, content);
-
       // if (response.success) {
       //   setSaveSuccess(true);
-
       //   // 3秒后关闭弹窗
       //   setTimeout(() => {
       //     window.close();
@@ -127,7 +116,6 @@ const SaveToFeishu: React.FC = () => {
     }
   };
 
-  return <ConfigPrompt onConfigSaved={handleConfigSaved} />;
   // 渲染配置提示界面
   if (isConfigured === false) {
     return <ConfigPrompt onConfigSaved={handleConfigSaved} />;

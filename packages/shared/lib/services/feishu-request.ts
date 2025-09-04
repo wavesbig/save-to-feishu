@@ -141,10 +141,7 @@ class FeishuRequest {
    * 获取tenant_access_token
    */
   private async getAccessTokens(): Promise<FeishuApiResponse> {
-    const appId = await FEISHU_CONFIG.getAppId();
-    console.log('🚀 ~ FeishuRequest ~ getAccessTokens ~ appId:', appId);
-    const appSecret = await FEISHU_CONFIG.getAppSecret();
-    console.log('🚀 ~ FeishuRequest ~ getAccessTokens ~ appSecret:', appSecret);
+    const { appId: appId, appSecret: appSecret } = await FEISHU_CONFIG.getAppInfo();
 
     if (!appId || !appSecret) {
       throw new Error('飞书应用配置不完整，请在设置页面配置APP_ID和APP_SECRET');
@@ -251,20 +248,6 @@ class FeishuRequest {
    */
   public getTenantAccessToken(): string | null {
     return this.tokenManager.tenantAccessToken;
-  }
-
-  /**
-   * 获取多维表格Token
-   */
-  public async getAppToken(): Promise<string> {
-    return await FEISHU_CONFIG.getAppToken();
-  }
-
-  /**
-   * 获取多维表格ID
-   */
-  public async getTableId(): Promise<string> {
-    return await FEISHU_CONFIG.getTableId();
   }
 
   /**

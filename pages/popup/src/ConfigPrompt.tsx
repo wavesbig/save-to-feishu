@@ -1,4 +1,4 @@
-import { MessageType, sendRequest, validateRequiredFields } from '@extension/shared';
+import { FEISHU_CONFIG, saveAndValidateConfig } from '@extension/shared';
 import {
   Button,
   Input,
@@ -54,11 +54,8 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
   useEffect(() => {
     const loadStoredData = async () => {
       try {
-        const result = await chrome.storage.local.get([
-          'feishuAppId',
-          'feishuAppSecret',
-          'app_token',
-          'table_id',
+        const { appId, appSecret, appToken, tableId } = await FEISHU_CONFIG.getAppInfo();
+        const { tempAppId, tempAppSecret, tempAppToken, tempTableId } = await chrome.storage.local.get([
           'tempAppId',
           'tempAppSecret',
           'tempAppToken',
@@ -66,19 +63,19 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
         ]);
 
         // 优先使用已保存的配置，如果没有则使用临时保存的输入
-        if (result.feishuAppId && result.feishuAppSecret) {
+        if (appId && appSecret && appToken && tableId) {
           form.reset({
-            appId: result.feishuAppId,
-            appSecret: result.feishuAppSecret,
-            appToken: result.app_token || '',
-            tableId: result.table_id || '',
+            appId: appId,
+            appSecret: appSecret,
+            appToken: appToken,
+            tableId: tableId,
           });
-        } else if (result.tempAppId || result.tempAppSecret || result.tempAppToken || result.tempTableId) {
+        } else if (tempAppId || tempAppSecret || tempAppToken || tempTableId) {
           form.reset({
-            appId: result.tempAppId || '',
-            appSecret: result.tempAppSecret || '',
-            appToken: result.tempAppToken || '',
-            tableId: result.tempTableId || '',
+            appId: tempAppId || '',
+            appSecret: tempAppSecret || '',
+            appToken: tempAppToken || '',
+            tableId: tempTableId || '',
           });
         }
       } catch (error) {
@@ -105,70 +102,30 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
     setIsSaving(true);
 
     try {
-      // 保存到本地存储
-      await chrome.storage.local.set({
-        feishuAppId: values.appId.trim(),
-        feishuAppSecret: values.appSecret.trim(),
-        app_token: values.appToken.trim(),
-        table_id: values.tableId.trim(),
+      // 使用统一的配置保存和验证函数
+      const validation = await saveAndValidateConfig({
+        appId: values.appId,
+        appSecret: values.appSecret,
+        appToken: values.appToken,
+        tableId: values.tableId,
       });
 
-      // 获取字段信息
-      const res = await sendRequest(MessageType.GET_BITABLE_FIELDS, {
-        app_token: values.appToken.trim(),
-        table_id: values.tableId.trim(),
-        page_size: 100,
-      });
-
-      if (res.code === 0) {
-        // 验证必需字段
-        const fields = res.data?.items || [];
-        const validation = validateRequiredFields(fields);
-
-        if (validation.isValid) {
-          console.log('字段验证通过');
-          // 通知父组件配置已保存
-          onConfigSaved();
-          // 清除临时存储
-          await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
-        } else {
-          // 字段验证失败，显示详细错误信息
-          let errorMessage = '多维表格字段验证失败：\n\n';
-
-          if (validation.missingFields.length > 0) {
-            errorMessage += '缺少必需字段：\n';
-            validation.missingFields.forEach(field => {
-              errorMessage += `• ${field.field_name} (类型: ${field.ui_type})\n`;
-            });
-            errorMessage += '\n';
-          }
-
-          if (validation.invalidFields.length > 0) {
-            errorMessage += '字段类型不匹配：\n';
-            validation.invalidFields.forEach(({ field, expected, actual }) => {
-              errorMessage += `• ${field.field_name}: 期望 ${expected}，实际 ${actual}\n`;
-            });
-            errorMessage += '\n';
-          }
-
-          errorMessage += '请确保多维表格包含以下字段：\n';
-          errorMessage += '• 标题 (文本类型)\n';
-          errorMessage += '• url (超链接类型)\n';
-          errorMessage += '• tag (多选类型)\n';
-          errorMessage += '• icon (附件类型)\n\n';
-          errorMessage += '您可以使用模板快速设置正确的字段结构。';
-
-          setValidationError(errorMessage);
-          // 移除无效配置
-          await chrome.storage.local.remove(['feishuAppId', 'feishuAppSecret', 'app_token', 'table_id']);
-        }
+      if (validation.isValid) {
+        console.log('配置保存和验证通过');
+        // 通知父组件配置已保存
+        onConfigSaved();
+        // 清除临时存储
       } else {
-        // 保存到本地存储
-        await chrome.storage.local.remove(['feishuAppId', 'feishuAppSecret', 'app_token', 'table_id']);
+        // 验证失败，显示详细错误信息
+        if (validation.code === 'field_validation_failed' && validation.errorMessage) {
+          setValidationError(validation.errorMessage);
+        } else {
+          toast.error(validation.errorMessage || '保存配置失败，请检查网络连接和配置信息');
+        }
       }
     } catch (error) {
       console.error('保存配置失败:', error);
-      toast.error('保存配置失败');
+      toast.error('保存配置失败，请检查网络连接和配置信息');
     } finally {
       setIsSaving(false);
     }

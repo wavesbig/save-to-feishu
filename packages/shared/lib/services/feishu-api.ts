@@ -3,6 +3,7 @@
  * 封装与飞书开放平台的交互
  */
 import { feishuRequest } from './feishu-request.js';
+import { FEISHU_CONFIG } from '../config/feishu-config.js';
 import type {
   GetBitableRecordsParams,
   BitableData,
@@ -16,14 +17,12 @@ import type {
  * @returns 查询结果
  */
 export const getBitableRecords = async (
-  params: Omit<GetBitableRecordsParams, 'app_token' | 'table_id'> & {
-    app_token?: string;
-    table_id?: string;
+  params: Omit<GetBitableRecordsParams, 'appToken' | 'tableId'> & {
+    appToken?: string;
+    tableId?: string;
   },
 ) => {
-  // 从配置中获取app_token和table_id（如果未提供）
-  const appToken = params.app_token || (await feishuRequest.getAppToken());
-  const tableId = params.table_id || (await feishuRequest.getTableId());
+  const { appToken, tableId } = await FEISHU_CONFIG.getAppInfo();
 
   if (!appToken) {
     throw new Error('多维表格 App Token 未配置，请在设置中配置');
@@ -62,14 +61,12 @@ export const getBitableRecords = async (
  * @returns 字段列表
  */
 export const getBitableFields = async (
-  params: Omit<GetBitableFieldsParams, 'app_token' | 'table_id'> & {
-    app_token?: string;
-    table_id?: string;
+  params: Omit<GetBitableFieldsParams, 'appToken' | 'tableId'> & {
+    appToken?: string;
+    tableId?: string;
   },
 ) => {
-  // 从配置中获取app_token和table_id（如果未提供）
-  const appToken = params.app_token || (await feishuRequest.getAppToken());
-  const tableId = params.table_id || (await feishuRequest.getTableId());
+  const { appToken, tableId } = await FEISHU_CONFIG.getAppInfo();
 
   if (!appToken) {
     throw new Error('多维表格 App Token 未配置，请在设置中配置');

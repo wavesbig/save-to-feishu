@@ -5,8 +5,8 @@
 
 // 多维表格查询记录请求参数类型
 export interface GetBitableRecordsParams {
-  app_token: string;
-  table_id: string;
+  appToken: string;
+  tableId: string;
   view_id?: string;
   field_names?: string[];
   sort?: Array<{
@@ -64,8 +64,8 @@ export interface BitableData {
 
 // 获取字段请求参数类型
 export interface GetBitableFieldsParams {
-  app_token: string;
-  table_id: string;
+  appToken: string;
+  tableId: string;
   view_id?: string;
   text_field_as_array?: boolean;
   page_token?: string;
