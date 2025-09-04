@@ -127,6 +127,7 @@ const SaveToFeishu: React.FC = () => {
     }
   };
 
+  return <ConfigPrompt onConfigSaved={handleConfigSaved} />;
   // 渲染配置提示界面
   if (isConfigured === false) {
     return <ConfigPrompt onConfigSaved={handleConfigSaved} />;

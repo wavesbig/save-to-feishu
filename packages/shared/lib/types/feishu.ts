@@ -61,3 +61,31 @@ export interface BitableData {
   total?: number;
   items: BitableRecord[];
 }
+
+// 获取字段请求参数类型
+export interface GetBitableFieldsParams {
+  app_token: string;
+  table_id: string;
+  view_id?: string;
+  text_field_as_array?: boolean;
+  page_token?: string;
+  page_size?: number;
+}
+
+// 字段类型
+export interface BitableField {
+  field_id: string;
+  field_name: string;
+  type: number;
+  property?: Record<string, any>;
+  description?: string | Array<{ text: string; type: string }>;
+  is_primary?: boolean;
+}
+
+// 获取字段响应类型
+export interface BitableFieldsData {
+  has_more: boolean;
+  page_token?: string;
+  total?: number;
+  items: BitableField[];
+}

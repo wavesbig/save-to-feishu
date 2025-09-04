@@ -1,4 +1,4 @@
-import { MessageType, sendRequest } from '@extension/shared';
+import { MessageType, sendRequest, validateRequiredFields } from '@extension/shared';
 import { Button, Input, Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@extension/ui';
 import { toast } from '@extension/ui/lib/sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -95,17 +95,55 @@ const ConfigPrompt: React.FC<ConfigPromptProps> = ({ onConfigSaved }) => {
         app_token: values.appToken.trim(),
         table_id: values.tableId.trim(),
       });
-      const res = await sendRequest(MessageType.GET_BITABLE_RECORDS, {
+
+      // 获取字段信息
+      const res = await sendRequest(MessageType.GET_BITABLE_FIELDS, {
         app_token: values.appToken.trim(),
         table_id: values.tableId.trim(),
-        page_size: 20,
+        page_size: 100,
       });
 
       if (res.code === 0) {
-        // 通知父组件配置已保存
-        onConfigSaved();
-        // 清除临时存储
-        await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
+        // 验证必需字段
+        const fields = res.data?.items || [];
+        const validation = validateRequiredFields(fields);
+
+        if (validation.isValid) {
+          console.log('字段验证通过');
+          // 通知父组件配置已保存
+          onConfigSaved();
+          // 清除临时存储
+          await chrome.storage.local.remove(['tempAppId', 'tempAppSecret', 'tempAppToken', 'tempTableId']);
+        } else {
+          // 字段验证失败，显示详细错误信息
+          let errorMessage = '多维表格字段验证失败：\n';
+
+          if (validation.missingFields.length > 0) {
+            errorMessage += '\n缺少必需字段：\n';
+            validation.missingFields.forEach(field => {
+              errorMessage += `- ${field.field_name} (类型: ${field.ui_type})\n`;
+            });
+          }
+
+          if (validation.invalidFields.length > 0) {
+            errorMessage += '\n字段类型不匹配：\n';
+            validation.invalidFields.forEach(({ field, expected, actual }) => {
+              errorMessage += `- ${field.field_name}: 期望 ${expected}，实际 ${actual}\n`;
+            });
+          }
+
+          errorMessage += '\n请确保多维表格包含以下字段：\n';
+          errorMessage += '- 标题 (文本类型)\n';
+          errorMessage += '- url (超链接类型)\n';
+          errorMessage += '- tag (多选类型)\n';
+          errorMessage += '- icon (附件类型)\n\n';
+          errorMessage += '您可以使用以下模板快速设置：\n';
+          errorMessage += 'https://r57ssyz8cr.feishu.cn/base/KAoIbSoDfaUPd4s8GjdcsnZenBd?from=from_copylink';
+
+          toast.error(errorMessage);
+          // 移除无效配置
+          await chrome.storage.local.remove(['feishuAppId', 'feishuAppSecret', 'app_token', 'table_id']);
+        }
       } else {
         // 保存到本地存储
         await chrome.storage.local.remove(['feishuAppId', 'feishuAppSecret', 'app_token', 'table_id']);
